@@ -269,11 +269,6 @@ Al completar la instalación deberías tener:
 - ✅ Cache Redis operativo
 - ✅ Datos de prueba poblados
 
-## 👥 Colaboradores
-
-- [Tu Nombre]
-- [Compañero 1]
-- [Compañero 2]
 
 ## 📚 Referencias Académicas
 
