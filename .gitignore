@@ -1,0 +1,50 @@
+# ========================================
+# .gitignore - Sistema Distribuido Cenfotec
+# ========================================
+
+# Archivos de datos de Docker (NO INCLUIR)
+volumes/
+!volumes/.gitkeep
+
+# Logs de Docker
+*.log
+
+# Archivos temporales de Docker
+.dockerignore
+docker-compose.override.yml
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Archivos de IDE
+.vscode/settings.json
+.vscode/launch.json
+.idea/
+*.swp
+*.swo
+
+# Archivos temporales
+*.tmp
+*.temp
+.env.local
+
+# Carpetas de backup automático
+backup/
+backups/
+
+# Archivos de configuración local personal
+config.local.*
+
+# ========================================
+# INCLUIR EN GIT (estos SÍ se suben):
+# ========================================
+# ✅ docker-compose.yml
+# ✅ nginx/nginx.conf
+# ✅ redis/redis.conf
+# ✅ mysql/*/init.sql
+# ✅ mysql/*/my.cnf
+# ✅ README.md
+# ✅ .gitignore
+# ✅ Scripts de verificación

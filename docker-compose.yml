@@ -1,0 +1,161 @@
+version: '3.8'
+
+services:
+  # ========================================
+  # RED Y SERVICIOS DE INFRAESTRUCTURA
+  # ========================================
+  
+  # NGINX Load Balancer
+  nginx-loadbalancer:
+    image: nginx:alpine
+    container_name: nginx-cenfotec
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      cenfotec:
+        ipv4_address: 172.20.0.14
+    depends_on:
+      - mysql-central
+      - mysql-sancarlos
+      - mysql-heredia
+      - redis-cache
+    restart: always
+
+  # Redis Cache Distribuido
+  redis-cache:
+    image: redis:alpine
+    container_name: redis-cenfotec
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis/redis.conf:/etc/redis/redis.conf:ro
+      - ./volumes/redis:/data
+    command: redis-server /etc/redis/redis.conf
+    networks:
+      cenfotec:
+        ipv4_address: 172.20.0.13
+    restart: always
+
+  # ========================================
+  # SEDE CENTRAL - NODO MAESTRO
+  # ========================================
+  
+  mysql-central:
+    image: mysql:8.0
+    container_name: mysql-central-cenfotec
+    environment:
+      MYSQL_ROOT_PASSWORD: admin123
+      MYSQL_DATABASE: cenfotec_central
+      MYSQL_USER: cenfotec_admin
+      MYSQL_PASSWORD: cenfotec123
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./mysql/central/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./mysql/central/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+      - ./volumes/mysql-central:/var/lib/mysql
+    networks:
+      cenfotec:
+        ipv4_address: 172.20.0.10
+    restart: always
+    command: --default-authentication-plugin=mysql_native_password
+
+  # ========================================
+  # SEDE SAN CARLOS - NODO REGIONAL
+  # ========================================
+  
+  mysql-sancarlos:
+    image: mysql:8.0
+    container_name: mysql-sancarlos-cenfotec
+    environment:
+      MYSQL_ROOT_PASSWORD: admin123
+      MYSQL_DATABASE: cenfotec_sancarlos
+      MYSQL_USER: cenfotec_admin
+      MYSQL_PASSWORD: cenfotec123
+    ports:
+      - "3307:3306"
+    volumes:
+      - ./mysql/sancarlos/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./mysql/sancarlos/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+      - ./volumes/mysql-sancarlos:/var/lib/mysql
+    networks:
+      cenfotec:
+        ipv4_address: 172.20.0.11
+    restart: always
+    command: --default-authentication-plugin=mysql_native_password
+
+  # ========================================
+  # SEDE HEREDIA - NODO REGIONAL
+  # ========================================
+  
+  mysql-heredia:
+    image: mysql:8.0
+    container_name: mysql-heredia-cenfotec
+    environment:
+      MYSQL_ROOT_PASSWORD: admin123
+      MYSQL_DATABASE: cenfotec_heredia
+      MYSQL_USER: cenfotec_admin
+      MYSQL_PASSWORD: cenfotec123
+    ports:
+      - "3308:3306"
+    volumes:
+      - ./mysql/heredia/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./mysql/heredia/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+      - ./volumes/mysql-heredia:/var/lib/mysql
+    networks:
+      cenfotec:
+        ipv4_address: 172.20.0.12
+    restart: always
+    command: --default-authentication-plugin=mysql_native_password
+
+  # ========================================
+  # HERRAMIENTAS DE ADMINISTRACIÓN
+  # ========================================
+  
+  # phpMyAdmin para gestión visual
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: phpmyadmin-cenfotec
+    environment:
+      PMA_ARBITRARY: 1
+      PMA_HOST: mysql-central
+      PMA_USER: root
+      PMA_PASSWORD: admin123
+      UPLOAD_LIMIT: 256M
+    ports:
+      - "8080:80"
+    networks:
+      cenfotec:
+        ipv4_address: 172.20.0.15
+    depends_on:
+      - mysql-central
+      - mysql-sancarlos
+      - mysql-heredia
+    restart: always
+
+# ========================================
+# CONFIGURACIÓN DE RED
+# ========================================
+networks:
+  cenfotec:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
+
+# ========================================
+# VOLÚMENES PERSISTENTES
+# ========================================
+volumes:
+  mysql-central-data:
+    driver: local
+  mysql-sancarlos-data:
+    driver: local
+  mysql-heredia-data:
+    driver: local
+  redis-data:
+    driver: local
