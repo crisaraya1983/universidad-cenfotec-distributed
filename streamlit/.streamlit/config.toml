@@ -1,0 +1,42 @@
+# Configuración de Streamlit para el Sistema Distribuido Cenfotec
+
+[theme]
+# Colores principales
+primaryColor = "#1f77b4"           # Azul corporativo
+backgroundColor = "#FFFFFF"        # Fondo blanco
+secondaryBackgroundColor = "#F0F2F6"  # Gris claro para paneles
+textColor = "#262730"              # Texto oscuro
+
+# Fuente
+font = "sans serif"
+
+[server]
+# Configuración del servidor
+port = 8501
+headless = true
+enableCORS = true
+enableXsrfProtection = true
+
+# Límites de carga
+maxUploadSize = 200
+maxMessageSize = 200
+
+[browser]
+# Configuración del navegador
+gatherUsageStats = false
+serverAddress = "localhost"
+serverPort = 8501
+
+[runner]
+# Configuración de ejecución
+magicEnabled = true
+postScriptGC = true
+fastReruns = true
+
+[client]
+# Configuración del cliente
+showErrorDetails = true
+
+# Configuración de interfaz
+showSidebarNavigation = true
+toolbarMode = "auto"
