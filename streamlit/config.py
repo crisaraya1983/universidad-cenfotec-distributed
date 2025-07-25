@@ -7,11 +7,11 @@ y servicios del sistema distribuido.
 import os
 from typing import Dict, Any
 
-# Configuración de bases de datos MySQL para Windows local
-# No se requieren variables de ambiente - valores hardcodeados para simplicidad
+# Configuración de bases de datos MySQL para Docker interno
+# Usando IPs internas de la red Docker
 DB_CONFIG = {
     'central': {
-        'host': 'localhost',
+        'host': '172.20.0.10',  # IP interna del contenedor MySQL Central
         'port': 3306,
         'user': 'root',
         'password': 'admin123',
@@ -21,8 +21,8 @@ DB_CONFIG = {
         'color': '#1f77b4'  # Azul
     },
     'sancarlos': {
-        'host': 'localhost',
-        'port': 3307,
+        'host': '172.20.0.11',  # IP interna del contenedor MySQL San Carlos
+        'port': 3306,
         'user': 'root',
         'password': 'admin123',
         'database': 'cenfotec_sancarlos',
@@ -31,8 +31,8 @@ DB_CONFIG = {
         'color': '#ff7f0e'  # Naranja
     },
     'heredia': {
-        'host': 'localhost',
-        'port': 3308,
+        'host': '172.20.0.12',  # IP interna del contenedor MySQL Heredia
+        'port': 3306,
         'user': 'root',
         'password': 'admin123',
         'database': 'cenfotec_heredia',
@@ -42,15 +42,15 @@ DB_CONFIG = {
     }
 }
 
-# Configuración de Redis Cache
+# Configuración de Redis Cache usando IP interna
 REDIS_CONFIG = {
-    'host': '127.0.0.1',  # Cambiar a 127.0.0.1
+    'host': '172.20.0.13',  # IP interna del contenedor Redis
     'port': 6379,
     'decode_responses': True,
     'db': 0
 }
 
-# Flag para habilitar/deshabilitar Redis
+# Flag para habilitar Redis
 REDIS_ENABLED = True
 
 # Configuración de la aplicación Streamlit

@@ -173,41 +173,55 @@ class DatabaseConnection:
 
 class RedisConnection:
     """
-    Clase dummy para Redis - deshabilitado por problemas de conexión.
+    Clase para gestionar conexiones a Redis Cache distribuido.
     """
     
     def __init__(self):
-        """Inicializa una conexión dummy."""
+        """Inicializa una conexión a Redis."""
         self.redis_client = None
         self.is_connected = False
-        logger.info("Redis deshabilitado - usando modo sin cache")
+        logger.info("Inicializando conexión a Redis...")
+        self.connect()
     
     def connect(self) -> bool:
-        """No hace nada, siempre retorna False."""
-        return False
+        """
+        Establece la conexión con Redis.
+        
+        Returns:
+            True si la conexión fue exitosa, False en caso contrario
+        """
+        try:
+            import redis
+            self.redis_client = redis.Redis(**REDIS_CONFIG)
+            # Probar la conexión
+            self.redis_client.ping()
+            self.is_connected = True
+            logger.info("Conexión exitosa a Redis Cache")
+            return True
+        except ImportError:
+            logger.warning("Módulo redis no disponible. Cache deshabilitado.")
+            self.is_connected = False
+            return False
+        except Exception as e:
+            logger.warning(f"Error al conectar con Redis: {e}. Cache deshabilitado.")
+            self.is_connected = False
+            return False
     
     def get(self, key: str) -> Optional[str]:
-        """Siempre retorna None."""
-        return None
-    
-    def set(self, key: str, value: str, expiry: int = 300):
-        """No hace nada."""
-        pass
-    
-    def delete(self, key: str):
-        """No hace nada."""
-        pass
-    
-    def flush(self):
-        """No hace nada."""
-        pass
-    
-    def get(self, key: str) -> Optional[str]:
-        """Obtiene un valor del cache."""
+        """
+        Obtiene un valor del cache.
+        
+        Args:
+            key: Clave para el valor
+        
+        Returns:
+            Valor almacenado o None si no existe o hay error
+        """
         if not self.is_connected:
             return None
         try:
-            return self.redis_client.get(key)
+            value = self.redis_client.get(key)
+            return value.decode('utf-8') if value else None
         except Exception as e:
             logger.warning(f"Error al obtener del cache: {e}")
             return None
@@ -225,15 +239,22 @@ class RedisConnection:
             return
         try:
             self.redis_client.setex(key, expiry, value)
+            logger.debug(f"Valor guardado en cache: {key}")
         except Exception as e:
             logger.warning(f"Error al guardar en cache: {e}")
     
     def delete(self, key: str):
-        """Elimina un valor del cache."""
+        """
+        Elimina un valor del cache.
+        
+        Args:
+            key: Clave a eliminar
+        """
         if not self.is_connected:
             return
         try:
             self.redis_client.delete(key)
+            logger.debug(f"Clave eliminada del cache: {key}")
         except Exception as e:
             logger.warning(f"Error al eliminar del cache: {e}")
     
@@ -246,7 +267,21 @@ class RedisConnection:
             logger.info("Cache limpiado exitosamente")
         except Exception as e:
             logger.warning(f"Error al limpiar cache: {e}")
-
+    
+    def get_info(self) -> Dict[str, Any]:
+        """
+        Obtiene información del servidor Redis.
+        
+        Returns:
+            Diccionario con información del servidor
+        """
+        if not self.is_connected:
+            return {}
+        try:
+            return self.redis_client.info()
+        except Exception as e:
+            logger.warning(f"Error al obtener info de Redis: {e}")
+            return {}
 
 @contextmanager
 def get_db_connection(sede: str):
