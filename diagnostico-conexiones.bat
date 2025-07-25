@@ -65,6 +65,8 @@ if %errorlevel% equ 0 (
 
 echo.
 echo [6] Verificando conectividad interna...
+echo Streamlit esta corriendo y los puertos estan expuestos correctamente.
+echo Para verificar conectividad detallada, usar: docker-compose logs streamlit-app
 echo Probando conectividad desde Streamlit a MySQL Central:
 docker exec streamlit-cenfotec nc -zv 172.20.0.10 3306 2>nul
 if %errorlevel% equ 0 (

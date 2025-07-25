@@ -54,7 +54,7 @@ REDIS_CONFIG = {
 }
 
 # Flag para habilitar Redis
-REDIS_ENABLED = False 
+REDIS_ENABLED = True 
 
 # Configuración de la aplicación Streamlit
 APP_CONFIG = {

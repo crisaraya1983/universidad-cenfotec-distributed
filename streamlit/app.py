@@ -256,12 +256,12 @@ def show_recent_activity():
                 if db:
                     query = """
                     SELECT e.nombre as estudiante, c.nombre as curso, 
-                           m.fecha_matricula, s.nombre as sede
+                        m.fecha_creacion, s.nombre as sede
                     FROM matricula m
                     JOIN estudiante e ON m.id_estudiante = e.id_estudiante
                     JOIN curso c ON m.id_curso = c.id_curso
                     JOIN sede s ON e.id_sede = s.id_sede
-                    ORDER BY m.fecha_matricula DESC
+                    ORDER BY m.fecha_creacion DESC
                     LIMIT 5
                     """
                     result = db.get_dataframe(query)
@@ -270,7 +270,7 @@ def show_recent_activity():
         
         if matriculas:
             df_matriculas = pd.concat(matriculas, ignore_index=True)
-            df_matriculas = df_matriculas.sort_values('fecha_matricula', ascending=False).head(10)
+            df_matriculas = df_matriculas.sort_values('fecha_creacion', ascending=False).head(10)
             st.dataframe(df_matriculas, use_container_width=True, hide_index=True)
         else:
             st.info("No hay matrículas recientes")
@@ -283,7 +283,7 @@ def show_recent_activity():
                 if db:
                     query = """
                     SELECT e.nombre as estudiante, p.monto, p.fecha, 
-                           p.concepto, s.nombre as sede
+                           s.nombre as sede
                     FROM pago p
                     JOIN estudiante e ON p.id_estudiante = e.id_estudiante
                     JOIN sede s ON e.id_sede = s.id_sede
@@ -311,7 +311,7 @@ def show_recent_activity():
                 if db:
                     query = """
                     SELECT e.nombre as estudiante, c.nombre as curso, 
-                           n.nota, n.tipo_evaluacion, s.nombre as sede
+                           n.nota, n.fecha_creacion, s.nombre as sede
                     FROM nota n
                     JOIN matricula m ON n.id_matricula = m.id_matricula
                     JOIN estudiante e ON m.id_estudiante = e.id_estudiante
