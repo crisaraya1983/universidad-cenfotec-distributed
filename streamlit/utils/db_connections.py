@@ -19,7 +19,7 @@ import sys
 import os
 # Agregar el directorio padre al path para importar config.py
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import DB_CONFIG, TIMEOUT_CONFIG, MESSAGES
+from config import DB_CONFIG, TIMEOUT_CONFIG, MESSAGES, REDIS_CONFIG, REDIS_ENABLED
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -180,8 +180,11 @@ class RedisConnection:
         """Inicializa una conexión a Redis."""
         self.redis_client = None
         self.is_connected = False
-        logger.info("Inicializando conexión a Redis...")
-        self.connect()
+        if REDIS_ENABLED:  # Solo intentar si está habilitado
+            logger.info("Inicializando conexión a Redis...")
+            self.connect()
+        else:
+            logger.info("Redis deshabilitado en configuración")
     
     def connect(self) -> bool:
         """
@@ -190,6 +193,10 @@ class RedisConnection:
         Returns:
             True si la conexión fue exitosa, False en caso contrario
         """
+        if not REDIS_ENABLED:
+            logger.info("Redis deshabilitado en configuración")
+            return False
+            
         try:
             import redis
             self.redis_client = redis.Redis(**REDIS_CONFIG)

@@ -88,10 +88,10 @@ docker logs streamlit-cenfotec --tail 10 2>nul
 
 echo.
 echo [8] Puertos expuestos:
-netstat -ano | findstr ":8501" 2>nul | head -5
-netstat -ano | findstr ":3306" 2>nul | head -1
-netstat -ano | findstr ":3307" 2>nul | head -1
-netstat -ano | findstr ":3308" 2>nul | head -1
+netstat -ano | findstr ":8501" 2>nul
+netstat -ano | findstr ":3306" 2>nul | findstr "LISTENING"
+netstat -ano | findstr ":3307" 2>nul | findstr "LISTENING"  
+netstat -ano | findstr ":3308" 2>nul | findstr "LISTENING"
 
 echo.
 echo ========================================

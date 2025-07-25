@@ -47,11 +47,14 @@ REDIS_CONFIG = {
     'host': '172.20.0.13',  # IP interna del contenedor Redis
     'port': 6379,
     'decode_responses': True,
-    'db': 0
+    'db': 0,
+    'socket_timeout': 5,
+    'socket_connect_timeout': 5,
+    'retry_on_timeout': True
 }
 
 # Flag para habilitar Redis
-REDIS_ENABLED = True
+REDIS_ENABLED = False 
 
 # Configuración de la aplicación Streamlit
 APP_CONFIG = {
