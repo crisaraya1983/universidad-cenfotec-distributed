@@ -597,15 +597,21 @@ with tab5:
             ["Estudiante", "Profesor", "Administrativo", "Directivo"]
         )
         
-        st.info(f"""
-        **Permisos del rol {rol_selected}:**
-        
-        {
-            "Estudiante": "- Ver sus calificaciones\\n- Ver sus pagos\\n- Ver horarios",
-            "Profesor": "- Ver estudiantes matriculados\\n- Registrar notas\\n- Ver planilla",
-            "Administrativo": "- Gestionar pagos\\n- Ver reportes financieros\\n- Gestionar pagarés",
-            "Directivo": "- Ver todos los reportes\\n- Análisis consolidados\\n- KPIs globales"
-        }[rol_selected]
+        # Diccionario de permisos
+        permisos = {
+            "Estudiante": "- Ver sus calificaciones\n- Ver sus pagos\n- Ver horarios",
+            "Profesor": "- Ver estudiantes matriculados\n- Registrar notas\n- Ver planilla",
+            "Administrativo": "- Gestionar pagos\n- Ver reportes financieros\n- Gestionar pagarés",
+            "Directivo": "- Ver todos los reportes\n- Análisis consolidados\n- KPIs globales"
+        }
+
+        # Obtener los permisos según el rol seleccionado
+        descripcion = permisos[rol_selected]
+
+        # Mostrar en Streamlit
+        st.info(f"""**Permisos del rol {rol_selected}:**
+
+        {descripcion}
         """)
     
     with col2:

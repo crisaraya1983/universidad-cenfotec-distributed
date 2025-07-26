@@ -21,7 +21,7 @@ if current_dir not in sys.path:
 
 # Importar configuración y utilidades
 from config import APP_CONFIG, DB_CONFIG, COLORS, get_all_sedes, get_sede_info
-from utils.db_connections import test_all_connections, get_db_connection, execute_distributed_query
+from utils.db_connections import test_all_connections, get_db_connection, execute_distributed_query, test_load_balancer, get_nginx_status
 
 # Configuración de la página principal
 st.set_page_config(
@@ -78,19 +78,20 @@ st.markdown("""
 
 def show_connection_status():
     """
-    Muestra el estado de conexión de todas las sedes y servicios.
-    Utiliza indicadores visuales para mostrar si cada componente está operativo.
+    Muestra el estado de conexión de todas las sedes, servicios y Load Balancer.
     """
     st.subheader("🔌 Estado de Conexiones")
     
-    # Crear columnas para mostrar el estado de cada sede
-    cols = st.columns(len(DB_CONFIG) + 1)  # +1 para Redis
+    # Crear columnas para mostrar el estado (agregar una más para LB)
+    cols = st.columns(len(DB_CONFIG) + 2)  # +2 para Redis y Load Balancer
     
     # Probar todas las conexiones
     with st.spinner("Verificando conexiones..."):
         status = test_all_connections()
+        lb_status = test_load_balancer()
+        nginx_info = get_nginx_status()
     
-    # Mostrar estado de cada sede MySQL
+    # Mostrar estado de cada sede MySQL (sin cambios)
     for idx, (sede, is_connected) in enumerate(status.items()):
         if sede != 'redis':
             with cols[idx]:
@@ -103,12 +104,21 @@ def show_connection_status():
                     st.caption("Desconectado")
     
     # Mostrar estado de Redis
-    with cols[-1]:
+    with cols[-2]:
         if status.get('redis', False):
             st.success("✅ Redis Cache")
             st.caption("Conectado")
         else:
             st.error("❌ Redis Cache")
+            st.caption("Desconectado")
+    
+    # Mostrar estado del Load Balancer (NUEVO)
+    with cols[-1]:
+        if lb_status:
+            st.success("✅ Load Balancer")
+            st.caption(f"Tiempo: {nginx_info.get('response_time', 'N/A')}s")
+        else:
+            st.error("❌ Load Balancer")
             st.caption("Desconectado")
 
 def show_system_overview():
@@ -136,10 +146,9 @@ def show_system_overview():
         with get_db_connection(sede) as db:
             if db:
                 for metric_name, query in queries.items():
-                    # Algunas tablas solo existen en ciertas sedes
-                    if sede == 'central' and metric_name not in ['profesores', 'carreras', 'planillas', 'pagares']:
-                        continue
-                    elif sede != 'central' and metric_name in ['planillas', 'pagares']:
+                    # MODIFICAR ESTA LÓGICA:
+                    # Todas las sedes ahora tienen datos académicos
+                    if metric_name in ['planillas', 'pagares'] and sede != 'central':
                         continue
                     
                     try:
@@ -164,14 +173,18 @@ def show_system_overview():
             
             # Mostrar métricas en columnas
             if sede == 'central':
-                col1, col2, col3, col4 = st.columns(4)
+                col1, col2, col3, col4, col5, col6 = st.columns(6)  # Aumentar columnas
                 with col1:
-                    st.metric("👨‍🏫 Profesores", metrics[sede].get('profesores', 0))
+                    st.metric("👥 Estudiantes", metrics[sede].get('estudiantes', 0))
                 with col2:
-                    st.metric("🎓 Carreras", metrics[sede].get('carreras', 0))
+                    st.metric("👨‍🏫 Profesores", metrics[sede].get('profesores', 0))
                 with col3:
-                    st.metric("💰 Planillas", metrics[sede].get('planillas', 0))
+                    st.metric("🎓 Carreras", metrics[sede].get('carreras', 0))
                 with col4:
+                    st.metric("📚 Cursos", metrics[sede].get('cursos', 0))
+                with col5:
+                    st.metric("💰 Planillas", metrics[sede].get('planillas', 0))
+                with col6:
                     st.metric("📄 Pagarés", metrics[sede].get('pagares', 0))
             else:
                 col1, col2, col3, col4 = st.columns(4)
@@ -193,8 +206,8 @@ def show_data_distribution():
     
     # Obtener conteo de estudiantes por sede
     estudiantes_data = []
-    
-    for sede in ['sancarlos', 'heredia']:
+
+    for sede in ['central', 'sancarlos', 'heredia']:  # Agregar 'central'
         with get_db_connection(sede) as db:
             if db:
                 query = """

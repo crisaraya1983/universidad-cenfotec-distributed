@@ -13,6 +13,7 @@ from typing import Optional, Dict, Any, List, Tuple
 import time
 from contextlib import contextmanager
 import logging
+from datetime import datetime, date, time, timedelta
 
 # Importar configuración desde el módulo config
 import sys
@@ -341,6 +342,50 @@ def test_all_connections() -> Dict[str, bool]:
     status['redis'] = False
     
     return status
+
+def test_load_balancer() -> bool:
+    """
+    Verifica si el Load Balancer NGINX está disponible.
+    
+    Returns:
+        True si está activo, False en caso contrario
+    """
+    try:
+        import requests
+        # Intentar conectar al load balancer
+        response = requests.get('http://172.20.0.14/health', timeout=5)
+        return response.status_code == 200
+    except ImportError:
+        logger.warning("Módulo requests no disponible para verificar Load Balancer")
+        return False
+    except Exception as e:
+        logger.warning(f"Load Balancer no disponible: {e}")
+        return False
+
+def get_nginx_status() -> Dict[str, Any]:
+    """
+    Obtiene información detallada del estado del Load Balancer.
+    
+    Returns:
+        Diccionario con información del estado
+    """
+    try:
+        import requests
+        response = requests.get('http://172.20.0.14/status', timeout=5)
+        if response.status_code == 200:
+            return {
+                'status': 'online',
+                'response_time': response.elapsed.total_seconds(),
+                'timestamp': datetime.now().isoformat()
+            }
+    except:
+        pass
+    
+    return {
+        'status': 'offline',
+        'response_time': None,
+        'timestamp': datetime.now().isoformat()
+    }
 
 
 def execute_distributed_query(query: str, sedes: Optional[List[str]] = None) -> Dict[str, pd.DataFrame]:
