@@ -264,7 +264,7 @@ def show_recent_activity():
     with tab1:
         # Obtener últimas matrículas de ambas sedes regionales
         matriculas = []
-        for sede in ['sancarlos', 'heredia']:
+        for sede in ['sancarlos', 'heredia', 'central']:
             with get_db_connection(sede) as db:
                 if db:
                     query = """
@@ -275,7 +275,7 @@ def show_recent_activity():
                     JOIN curso c ON m.id_curso = c.id_curso
                     JOIN sede s ON e.id_sede = s.id_sede
                     ORDER BY m.fecha_creacion DESC
-                    LIMIT 5
+                    LIMIT 10
                     """
                     result = db.get_dataframe(query)
                     if result is not None and not result.empty:
@@ -291,7 +291,7 @@ def show_recent_activity():
     with tab2:
         # Obtener últimos pagos
         pagos = []
-        for sede in ['sancarlos', 'heredia']:
+        for sede in ['sancarlos', 'heredia', 'central']:
             with get_db_connection(sede) as db:
                 if db:
                     query = """
@@ -301,7 +301,7 @@ def show_recent_activity():
                     JOIN estudiante e ON p.id_estudiante = e.id_estudiante
                     JOIN sede s ON e.id_sede = s.id_sede
                     ORDER BY p.fecha DESC
-                    LIMIT 5
+                    LIMIT 10
                     """
                     result = db.get_dataframe(query)
                     if result is not None and not result.empty:
@@ -319,7 +319,7 @@ def show_recent_activity():
     with tab3:
         # Obtener notas recientes
         notas = []
-        for sede in ['sancarlos', 'heredia']:
+        for sede in ['sancarlos', 'heredia', 'central']:
             with get_db_connection(sede) as db:
                 if db:
                     query = """
@@ -331,7 +331,7 @@ def show_recent_activity():
                     JOIN curso c ON m.id_curso = c.id_curso
                     JOIN sede s ON e.id_sede = s.id_sede
                     ORDER BY n.id_nota DESC
-                    LIMIT 5
+                    LIMIT 10
                     """
                     result = db.get_dataframe(query)
                     if result is not None and not result.empty:

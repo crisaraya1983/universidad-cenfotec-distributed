@@ -13,7 +13,8 @@ from typing import Optional, Dict, Any, List, Tuple
 import time
 from contextlib import contextmanager
 import logging
-from datetime import datetime, date, time, timedelta
+from datetime import datetime, date, timedelta
+import time 
 
 # Importar configuración desde el módulo config
 import sys
@@ -178,35 +179,40 @@ class RedisConnection:
     """
     
     def __init__(self):
-        """Inicializa una conexión a Redis."""
+        logger.info("=== INICIANDO RedisConnection.__init__ ===")
         self.redis_client = None
         self.is_connected = False
-        if REDIS_ENABLED:  # Solo intentar si está habilitado
+        
+        logger.info(f"REDIS_ENABLED = {REDIS_ENABLED}")
+        
+        if REDIS_ENABLED:
             logger.info("Inicializando conexión a Redis...")
-            self.connect()
+            resultado = self.connect()
+            logger.info(f"Resultado de connect(): {resultado}")
         else:
             logger.info("Redis deshabilitado en configuración")
+        
+        logger.info(f"=== FIN RedisConnection.__init__ - is_connected: {self.is_connected} ===")
     
     def connect(self) -> bool:
-        """
-        Establece la conexión con Redis.
+        logger.info("=== DENTRO DE connect() ===")
         
-        Returns:
-            True si la conexión fue exitosa, False en caso contrario
-        """
         if not REDIS_ENABLED:
             logger.info("Redis deshabilitado en configuración")
             return False
             
         try:
             import redis
+            logger.info(f"Configuración Redis: {REDIS_CONFIG}")
+            
             self.redis_client = redis.Redis(**REDIS_CONFIG)
-            # Probar la conexión
-            self.redis_client.ping()
+            
+            ping_result = self.redis_client.ping()
+            
             self.is_connected = True
             logger.info("Conexión exitosa a Redis Cache")
             return True
-        except ImportError:
+        except ImportError as e:
             logger.warning("Módulo redis no disponible. Cache deshabilitado.")
             self.is_connected = False
             return False
@@ -310,23 +316,19 @@ def get_db_connection(sede: str):
     finally:
         db.disconnect()
 
-
 @st.cache_resource
 def get_redis_connection() -> RedisConnection:
     """
     Obtiene una conexión singleton a Redis usando el cache de Streamlit.
-    Esto evita crear múltiples conexiones innecesarias.
-    
-    Returns:
-        Instancia de RedisConnection
     """
-    return RedisConnection()
-
+    logger.info("=== CREANDO NUEVA CONEXIÓN REDIS ===")
+    conn = RedisConnection()
+    logger.info(f"=== CONEXIÓN REDIS CREADA: is_connected={conn.is_connected} ===")
+    return conn
 
 def test_all_connections() -> Dict[str, bool]:
     """
-    Prueba todas las conexiones de base de datos.
-    Redis está deshabilitado.
+    Prueba todas las conexiones de base de datos y Redis.
     
     Returns:
         Diccionario con el estado de cada conexión
@@ -338,8 +340,9 @@ def test_all_connections() -> Dict[str, bool]:
         with get_db_connection(sede) as db:
             status[sede] = db is not None and db.connection.is_connected()
     
-    # Redis está deshabilitado
-    status['redis'] = False
+    # Probar conexión Redis
+    redis_conn = get_redis_connection()
+    status['redis'] = redis_conn is not None and redis_conn.is_connected
     
     return status
 
