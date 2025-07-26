@@ -121,6 +121,75 @@ def show_connection_status():
             st.error("❌ Load Balancer")
             st.caption("Desconectado")
 
+    # Widget de salud del sistema
+    st.markdown("### 🏥 Salud General del Sistema")
+
+    # Calcular score de salud
+    conexiones_activas = sum(1 for status in [*status.values(), lb_status])
+    total_conexiones = len(status) + 1  # +1 para load balancer
+    health_score = (conexiones_activas / total_conexiones) * 100
+
+    # Determinar estado
+    if health_score == 100:
+        health_status = "🟢 Excelente"
+        health_color = "green"
+    elif health_score >= 80:
+        health_status = "🟡 Bueno" 
+        health_color = "orange"
+    else:
+        health_status = "🔴 Degradado"
+        health_color = "red"
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.metric(
+            "🎯 Score de Salud",
+            f"{health_score:.0f}%",
+            help="Porcentaje de servicios operativos"
+        )
+
+    with col2:
+        st.metric(
+            "📊 Estado General", 
+            health_status,
+            help="Estado consolidado del sistema"
+        )
+
+    with col3:
+        st.metric(
+            "⚡ Servicios Activos",
+            f"{conexiones_activas}/{total_conexiones}",
+            help="Conexiones activas vs total"
+        )
+
+    # Gráfico de gauge para health score
+    fig_gauge = go.Figure(go.Indicator(
+        mode = "gauge+number+delta",
+        value = health_score,
+        domain = {'x': [0, 1], 'y': [0, 1]},
+        title = {'text': "🏥 Salud del Sistema"},
+        delta = {'reference': 90},
+        gauge = {
+            'axis': {'range': [None, 100]},
+            'bar': {'color': "darkblue"},
+            'steps': [
+                {'range': [0, 60], 'color': "lightgray"},
+                {'range': [60, 80], 'color': "yellow"},
+                {'range': [80, 95], 'color': "lightgreen"},
+                {'range': [95, 100], 'color': "green"}
+            ],
+            'threshold': {
+                'line': {'color': "red", 'width': 4},
+                'thickness': 0.75,
+                'value': 90
+            }
+        }
+    ))
+
+    fig_gauge.update_layout(height=300)
+    st.plotly_chart(fig_gauge, use_container_width=True)
+
 def show_system_overview():
     """
     Muestra una visión general del sistema con métricas clave.
@@ -197,59 +266,225 @@ def show_system_overview():
                 with col4:
                     st.metric("🎓 Carreras", metrics[sede].get('carreras', 0))
 
-def show_data_distribution():
-    """
-    Visualiza la distribución de datos entre las sedes usando gráficos.
-    Esto ayuda a entender visualmente cómo está fragmentada la información.
-    """
-    st.subheader("🗂️ Distribución de Datos")
-    
-    # Obtener conteo de estudiantes por sede
-    estudiantes_data = []
+    # Dashboard consolidado
+    st.markdown("### 🌐 Vista Consolidada del Sistema")
 
-    for sede in ['central', 'sancarlos', 'heredia']:  # Agregar 'central'
-        with get_db_connection(sede) as db:
-            if db:
-                query = """
-                SELECT s.nombre as sede, COUNT(e.id_estudiante) as total
-                FROM estudiante e
-                JOIN sede s ON e.id_sede = s.id_sede
-                GROUP BY s.nombre
-                """
-                result = db.execute_query(query)
-                if result:
-                    for row in result:
-                        estudiantes_data.append({
-                            'Sede': row['sede'],
-                            'Estudiantes': row['total']
-                        })
-    
-    if estudiantes_data:
+    # Calcular métricas globales
+    total_estudiantes = sum(metrics[sede].get('estudiantes', 0) for sede in get_all_sedes())
+    total_profesores = sum(metrics[sede].get('profesores', 0) for sede in get_all_sedes())
+    total_cursos = sum(metrics[sede].get('cursos', 0) for sede in get_all_sedes())
+    total_matriculas = sum(metrics[sede].get('matriculas', 0) for sede in get_all_sedes())
+
+    # Métricas globales en columnas
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("👥 Total Estudiantes", f"{total_estudiantes:,}", 
+                help="Suma de estudiantes en todas las sedes")
+    with col2:
+        st.metric("👨‍🏫 Total Profesores", f"{total_profesores:,}",
+                help="Profesores activos en el sistema")
+    with col3:
+        st.metric("📚 Total Cursos", f"{total_cursos:,}",
+                help="Cursos ofrecidos en todas las sedes")
+    with col4:
+        st.metric("📝 Total Matrículas", f"{total_matriculas:,}",
+                help="Matrículas activas en el sistema")
+
+    # Gráficos comparativos
+    col1, col2 = st.columns(2)
+
+    with col1:
+        # Gráfico de comparación de estudiantes
+        estudiantes_data = []
+        for sede in get_all_sedes():
+            sede_info = get_sede_info(sede)
+            estudiantes_data.append({
+                'Sede': sede_info['name'].replace('🏛️ ', '').replace('🏢 ', '').replace('🏫 ', ''),
+                'Estudiantes': metrics[sede].get('estudiantes', 0),
+                'Color': sede_info['color']
+            })
+        
         df_estudiantes = pd.DataFrame(estudiantes_data)
         
-        # Crear gráfico de distribución
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Gráfico de barras
-            fig_bar = px.bar(df_estudiantes, 
-                            x='Sede', 
-                            y='Estudiantes',
-                            title='Estudiantes por Sede',
-                            color='Sede',
-                            color_discrete_map={'San Carlos': COLORS['secondary'], 
-                                              'Heredia': COLORS['success']})
-            st.plotly_chart(fig_bar, use_container_width=True)
-        
-        with col2:
-            # Gráfico de pie
-            fig_pie = px.pie(df_estudiantes, 
-                           values='Estudiantes', 
-                           names='Sede',
-                           title='Distribución Porcentual de Estudiantes',
-                           color_discrete_map={'San Carlos': COLORS['secondary'], 
-                                             'Heredia': COLORS['success']})
+        if not df_estudiantes.empty:
+            fig_estudiantes = px.bar(
+                df_estudiantes, 
+                x='Sede', 
+                y='Estudiantes',
+                title='📊 Distribución de Estudiantes por Sede',
+                color='Sede',
+                color_discrete_map={row['Sede']: row['Color'] for _, row in df_estudiantes.iterrows()}
+            )
+            fig_estudiantes.update_layout(
+                showlegend=False,
+                height=400,
+                xaxis_title="Sede",
+                yaxis_title="Número de Estudiantes"
+            )
+            st.plotly_chart(fig_estudiantes, use_container_width=True)
+
+    with col2:
+        # Gráfico de pie para distribución porcentual
+        if not df_estudiantes.empty and df_estudiantes['Estudiantes'].sum() > 0:
+            fig_pie = px.pie(
+                df_estudiantes, 
+                values='Estudiantes', 
+                names='Sede',
+                title='🍰 Distribución Porcentual de Estudiantes',
+                color='Sede',
+                color_discrete_map={row['Sede']: row['Color'] for _, row in df_estudiantes.iterrows()}
+            )
+            fig_pie.update_traces(textposition='inside', textinfo='percent+label')
+            fig_pie.update_layout(height=400)
             st.plotly_chart(fig_pie, use_container_width=True)
+
+def show_data_distribution():
+    """
+    Visualiza la distribución de datos entre las sedes con gráficos mejorados.
+    """
+    st.subheader("🗂️ Análisis de Distribución de Datos")
+    
+    # Obtener datos de todas las sedes
+    distribucion_data = []
+    
+    for sede in get_all_sedes():
+        sede_info = get_sede_info(sede)
+        with get_db_connection(sede) as db:
+            if db:
+                # Obtener múltiples métricas
+                queries = {
+                    'estudiantes': "SELECT COUNT(*) as total FROM estudiante",
+                    'cursos': "SELECT COUNT(*) as total FROM curso", 
+                    'matriculas': "SELECT COUNT(*) as total FROM matricula",
+                    'notas': "SELECT COUNT(*) as total FROM nota"
+                }
+                
+                sede_data = {
+                    'Sede': sede_info['name'].replace('🏛️ ', '').replace('🏢 ', '').replace('🏫 ', ''),
+                    'Color': sede_info['color']
+                }
+                
+                for metric, query in queries.items():
+                    try:
+                        result = db.execute_query(query)
+                        sede_data[metric.title()] = result[0]['total'] if result else 0
+                    except:
+                        sede_data[metric.title()] = 0
+                
+                distribucion_data.append(sede_data)
+    
+    if distribucion_data:
+        df_dist = pd.DataFrame(distribucion_data)
+        
+        # Crear pestañas para diferentes vistas
+        tab1, tab2, tab3 = st.tabs(["📊 Comparación General", "📈 Métricas Detalladas", "🔍 Análisis por Sede"])
+        
+        with tab1:
+            # Gráfico de barras agrupadas
+            metrics_to_plot = ['Estudiantes', 'Cursos', 'Matriculas', 'Notas']
+            df_melted = df_dist.melt(
+                id_vars=['Sede', 'Color'], 
+                value_vars=metrics_to_plot,
+                var_name='Métrica', 
+                value_name='Cantidad'
+            )
+            
+            fig_grouped = px.bar(
+                df_melted, 
+                x='Sede', 
+                y='Cantidad',
+                color='Métrica',
+                title='📊 Comparación de Métricas por Sede',
+                barmode='group',
+                color_discrete_sequence=px.colors.qualitative.Set3
+            )
+            fig_grouped.update_layout(height=450)
+            st.plotly_chart(fig_grouped, use_container_width=True)
+            
+            # Insights automáticos
+            total_estudiantes = df_dist['Estudiantes'].sum()
+            sede_mayor = df_dist.loc[df_dist['Estudiantes'].idxmax(), 'Sede']
+            porcentaje_mayor = (df_dist['Estudiantes'].max() / total_estudiantes * 100)
+            
+            st.info(f"""
+            **📈 Insights del Sistema:**
+            - **Total de estudiantes:** {total_estudiantes:,}
+            - **Sede con más estudiantes:** {sede_mayor} ({porcentaje_mayor:.1f}% del total)
+            - **Promedio por sede:** {total_estudiantes/len(df_dist):.0f} estudiantes
+            """)
+        
+        with tab2:
+            # Heatmap de métricas
+            df_heatmap = df_dist.set_index('Sede')[metrics_to_plot]
+            
+            fig_heatmap = px.imshow(
+                df_heatmap.T,
+                labels=dict(x="Sede", y="Métrica", color="Cantidad"),
+                title="🔥 Mapa de Calor - Densidad de Datos por Sede",
+                color_continuous_scale="YlOrRd",
+                text_auto=True
+            )
+            fig_heatmap.update_layout(height=400)
+            st.plotly_chart(fig_heatmap, use_container_width=True)
+            
+            # Tabla detallada
+            st.markdown("### 📋 Tabla Detallada")
+            st.dataframe(
+                df_dist.drop('Color', axis=1).style.highlight_max(axis=0),
+                use_container_width=True,
+                hide_index=True
+            )
+        
+        with tab3:
+            # Análisis individual por sede
+            sede_selected = st.selectbox(
+                "Selecciona una sede para análisis detallado:",
+                df_dist['Sede'].tolist()
+            )
+            
+            sede_data = df_dist[df_dist['Sede'] == sede_selected].iloc[0]
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Métricas de la sede seleccionada
+                st.markdown(f"### 📊 Métricas de {sede_selected}")
+                
+                for metric in metrics_to_plot:
+                    valor = sede_data[metric]
+                    total_metric = df_dist[metric].sum()
+                    porcentaje = (valor / total_metric * 100) if total_metric > 0 else 0
+                    
+                    st.metric(
+                        f"{metric}",
+                        f"{valor:,}",
+                        f"{porcentaje:.1f}% del total"
+                    )
+            
+            with col2:
+                # Gráfico radial para la sede
+                categories = metrics_to_plot
+                values = [sede_data[cat] for cat in categories]
+                
+                fig_radar = go.Figure()
+                
+                fig_radar.add_trace(go.Scatterpolar(
+                    r=values,
+                    theta=categories,
+                    fill='toself',
+                    name=sede_selected,
+                    line_color=sede_data['Color']
+                ))
+                
+                fig_radar.update_layout(
+                    polar=dict(
+                        radialaxis=dict(visible=True, range=[0, max(values) * 1.1])
+                    ),
+                    title=f"📡 Perfil de Datos - {sede_selected}",
+                    height=400
+                )
+                
+                st.plotly_chart(fig_radar, use_container_width=True)
 
 def show_recent_activity():
     """
