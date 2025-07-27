@@ -25,6 +25,12 @@ from .queries import (
     build_pagination
 )
 
+from .replication import (
+    MasterSlaveReplication,
+    execute_master_slave_replication,
+    ReplicationConnection
+)
+
 # Definir qué se exporta cuando se hace "from utils import *"
 __all__ = [
     # Conexiones
@@ -44,7 +50,10 @@ __all__ = [
     'USER_VIEW_QUERIES',
     'ReportQueries',
     'build_date_filter',
-    'build_pagination'
+    'build_pagination',
+    'MasterSlaveReplication',
+    'execute_master_slave_replication',
+    'ReplicationConnection'
 ]
 
 # Versión del módulo
