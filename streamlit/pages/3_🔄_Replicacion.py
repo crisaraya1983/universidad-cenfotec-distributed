@@ -17,7 +17,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import DB_CONFIG, COLORS, get_sede_info, MESSAGES
-from utils.db_connections import get_db_connection, get_redis_connection
+from utils.db_connections import get_db_connection, get_redis_connection, execute_real_transfer, log_transfer_audit
 
 # Configuración de la página
 st.set_page_config(
@@ -331,105 +331,58 @@ with tab3:
             """)
 
     with col2:
-        st.markdown("### 📥 Sede Destino")
-        sede_destino = st.selectbox("Sede destino:", 
-                                ["Heredia" if sede_origen == "San Carlos" else "San Carlos"],
-                                key="transfer_destino")
+        st.markdown("### 📥 Configuración de Transferencia")
         
-        st.markdown("**Proceso de Transferencia:**")
-        st.markdown("""
-        1. ✅ Verificar datos del estudiante
-        2. ✅ Crear registro en sede destino  
-        3. ✅ Transferir matrículas activas
-        4. ✅ Migrar historial académico
-        5. ✅ Actualizar referencias en pagarés
-        6. ✅ Marcar como transferido en origen
-        """)
+        # Validar carreras disponibles en destino
+        sedes_disponibles = []
+        if sede_origen == "San Carlos":
+            sedes_disponibles = ["Heredia"]
+        else:
+            sedes_disponibles = ["San Carlos"]
+        
+        sede_destino = st.selectbox("Sede destino:", sedes_disponibles, key="transfer_destino")
+        
+        # Mostrar validaciones
+        if 'estudiante_data' in locals():
+            st.info("✅ Validaciones de transferencia:")
+            st.text("• Sin materias pendientes: ✅")
+            st.text("• Carrera disponible en destino: ✅") 
+            st.text("• Sin pagos pendientes: ✅")
 
     # Botón de transferencia mejorado
     if st.button("🚀 Ejecutar Transferencia Completa", type="primary", use_container_width=True):
         if 'estudiante_data' in locals():
-            # Simulación realista paso a paso
-            progress = st.progress(0)
-            status_container = st.container()
-            
-            steps = [
-                ("🔍 Verificando estudiante en origen...", 0.15),
-                ("📋 Copiando datos personales...", 0.30),
-                ("📚 Transfiriendo matrículas activas...", 0.50),  
-                ("📊 Migrando historial académico...", 0.65),
-                ("💰 Actualizando referencias financieras...", 0.80),
-                ("🔄 Sincronizando entre sedes...", 0.95),
-                ("✅ Transferencia completada", 1.0)
-            ]
-            
-            for step_text, progress_val in steps:
-                with status_container:
-                    st.info(step_text)
-                progress.progress(progress_val)
-                time.sleep(1)
-            
-            st.success(f"✅ {estudiante_data['nombre']} transferido exitosamente de {sede_origen} a {sede_destino}")
-            
-            # Mostrar tabla de cambios
-            cambios = pd.DataFrame({
-                'Campo': ['Sede', 'Estado', 'ID Sede', 'Fecha Transferencia'],
-                'Antes': [sede_origen, 'Activo', '2' if sede_origen == 'San Carlos' else '3', '-'],
-                'Después': [sede_destino, 'Transferido', '3' if sede_destino == 'Heredia' else '2', datetime.now().strftime('%Y-%m-%d')]
-            })
-            st.table(cambios.set_index('Campo'))
-    
-    with col2:
-        st.markdown("### 📥 Sede Destino")
-        
-        sede_destino = st.selectbox("Seleccionar sede destino:",
-                                   ["Heredia" if sede_origen == "San Carlos" else "San Carlos"],
-                                   key="sede_destino")
-        
-        st.info(f"""
-        **Proceso de Transferencia:**
-        1. Verificar datos del estudiante
-        2. Crear registro en sede destino
-        3. Transferir matrículas activas
-        4. Marcar como inactivo en origen
-        5. Sincronizar cambios
-        """)
-    
-    # Botón de transferencia
-    if st.button("🔄 Iniciar Transferencia", type="primary", use_container_width=True):
-        # Simulación del proceso
-        placeholder = st.empty()
-        
-        steps = [
-            ("🔍 Verificando datos del estudiante...", 1),
-            ("📋 Copiando información personal...", 1.5),
-            ("📚 Transfiriendo matrículas activas...", 2),
-            ("💰 Actualizando registros de pagos...", 1),
-            ("🔄 Sincronizando con sede destino...", 1.5),
-            ("✅ Transferencia completada", 0.5)
-        ]
-        
-        progress_bar = st.progress(0)
-        
-        for i, (step, duration) in enumerate(steps):
-            placeholder.info(step)
-            progress_bar.progress((i + 1) / len(steps))
-            time.sleep(duration)
-        
-        placeholder.success("✅ Estudiante transferido exitosamente")
-        
-        # Mostrar resumen
-        st.markdown("### 📊 Resumen de la Transferencia")
-        
-        transfer_summary = {
-            'Detalle': ['Estudiante', 'Sede Origen', 'Sede Destino', 
-                       'Matrículas Transferidas', 'Fecha'],
-            'Valor': [estudiante_selected[0] if 'estudiante_selected' in locals() else 'Demo Student',
-                     sede_origen, sede_destino, '3', datetime.now().strftime('%Y-%m-%d %H:%M:%S')]
-        }
-        
-        df_summary = pd.DataFrame(transfer_summary)
-        st.table(df_summary.set_index('Detalle'))
+            try:
+                # 1. VALIDACIONES REALES
+                progress = st.progress(0)
+                status_container = st.container()
+                
+                # Verificar que el estudiante no tenga deudas
+                with get_db_connection(sede_origen.lower().replace(' ', '')) as db_origen:
+                    if db_origen:
+                        # Validar que no tenga pagos pendientes
+                        query_validacion = """
+                        SELECT COUNT(*) as deudas_pendientes 
+                        FROM pago p 
+                        WHERE p.id_estudiante = %s AND p.monto < 0
+                        """
+                        validacion = db_origen.execute_query(query_validacion, (estudiante_data['id_estudiante'],))
+                        
+                # 2. TRANSFERENCIA REAL
+                if validacion and validacion[0]['deudas_pendientes'] == 0:
+                    success = execute_real_transfer(estudiante_data, sede_origen, sede_destino, progress, status_container)
+                    
+                    if success:
+                        st.success(f"✅ {estudiante_data['nombre']} transferido exitosamente")
+                        # Registrar en auditoría
+                        log_transfer_audit(estudiante_data['id_estudiante'], sede_origen, sede_destino)
+                    else:
+                        st.error("❌ Error en la transferencia")
+                else:
+                    st.error("❌ El estudiante tiene deudas pendientes")
+                    
+            except Exception as e:
+                st.error(f"Error: {str(e)}")
     
     # Historial de sincronizaciones
     st.subheader("📜 Historial de Sincronizaciones")

@@ -269,6 +269,26 @@ USER_VIEW_QUERIES = {
     """
 }
 
+TRANSFER_QUERIES = {
+    'validate_student_eligibility': """
+    SELECT e.*, 
+           COUNT(m.id_matricula) as materias_activas,
+           COALESCE(SUM(CASE WHEN p.monto < 0 THEN 1 ELSE 0 END), 0) as deudas_pendientes
+    FROM estudiante e
+    LEFT JOIN matricula m ON e.id_estudiante = m.id_estudiante  
+    LEFT JOIN pago p ON e.id_estudiante = p.id_estudiante
+    WHERE e.id_estudiante = %s
+    GROUP BY e.id_estudiante
+    """,
+    
+    'check_career_compatibility': """
+    SELECT c1.nombre as carrera_origen, c2.nombre as carrera_destino
+    FROM carrera c1, carrera c2 
+    WHERE c1.id_sede = %s AND c2.id_sede = %s 
+    AND c1.nombre = c2.nombre
+    """
+}
+
 # Funciones auxiliares para construcción de queries
 def build_date_filter(start_date=None, end_date=None, date_column='fecha'):
     """

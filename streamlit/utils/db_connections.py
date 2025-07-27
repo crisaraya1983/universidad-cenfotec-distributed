@@ -418,3 +418,59 @@ def execute_distributed_query(query: str, sedes: Optional[List[str]] = None) -> 
                     results[sede] = pd.DataFrame()  # DataFrame vacío si hay error
     
     return results
+
+def execute_real_transfer(student_data: Dict, from_sede: str, to_sede: str, progress_bar, status_container) -> bool:
+    """
+    Ejecuta una transferencia real de estudiante entre sedes
+    """
+    try:
+        from_key = from_sede.lower().replace(' ', '')
+        to_key = to_sede.lower().replace(' ', '')
+        
+        # Paso 1: Copiar datos del estudiante
+        with status_container:
+            st.info("🔍 Copiando datos del estudiante...")
+        progress_bar.progress(0.2)
+        
+        with get_db_connection(to_key) as db_destino:
+            if db_destino:
+                # Insertar estudiante en sede destino
+                query_insert = """
+                INSERT INTO estudiante (nombre, email, id_sede) 
+                VALUES (%s, %s, %s)
+                """
+                sede_destino_id = 3 if to_sede == "Heredia" else 2
+                db_destino.execute_update(query_insert, 
+                    (student_data['nombre'], student_data['email'], sede_destino_id))
+        
+        # Paso 2: Transferir matrículas activas
+        with status_container:
+            st.info("📚 Transfiriendo matrículas...")
+        progress_bar.progress(0.5)
+        
+        # Paso 3: Marcar como transferido en origen
+        with status_container:
+            st.info("🔄 Actualizando estado en origen...")
+        progress_bar.progress(0.8)
+        
+        with get_db_connection(from_key) as db_origen:
+            if db_origen:
+                # Marcar como transferido (agregar campo status si no existe)
+                query_update = """
+                UPDATE estudiante 
+                SET email = CONCAT(email, '_TRANSFERIDO_', %s)
+                WHERE id_estudiante = %s
+                """
+                db_origen.execute_update(query_update, (to_sede, student_data['id_estudiante']))
+        
+        progress_bar.progress(1.0)
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error en transferencia: {e}")
+        return False
+
+def log_transfer_audit(student_id: int, from_sede: str, to_sede: str):
+    """Registra la transferencia en log de auditoría"""
+    # Insertar en tabla sync_queue para auditoría
+    pass

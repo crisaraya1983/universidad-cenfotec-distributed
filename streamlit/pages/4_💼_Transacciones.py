@@ -291,8 +291,14 @@ with tab3:
                                   value=50000, step=1000)
         
         with col2:
-            concepto = st.selectbox("Concepto:", 
-                                  ["Matrícula", "Mensualidad", "Laboratorio", "Otro"])
+            concepto = st.selectbox("Concepto:", [
+                "Matrícula",
+                "Mensualidad", 
+                "Laboratorio",
+                "Pago de Pagaré", 
+                "Transferencia de Créditos", 
+                "Matrícula Intercambio"
+            ])
             
             tiene_pagare = st.checkbox("¿Aplica a un pagaré existente?")
             
