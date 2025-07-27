@@ -10,7 +10,9 @@ from .db_connections import (
     get_db_connection,
     get_redis_connection,
     test_all_connections,
-    execute_distributed_query
+    execute_distributed_query,
+    execute_real_transfer,
+    log_transfer_audit
 )
 
 from .queries import (
@@ -28,6 +30,7 @@ from .queries import (
 from .replication import (
     MasterSlaveReplication,
     execute_master_slave_replication,
+    execute_profesor_replication,  # NUEVA FUNCIÓN
     ReplicationConnection
 )
 
@@ -40,6 +43,8 @@ __all__ = [
     'get_redis_connection',
     'test_all_connections',
     'execute_distributed_query',
+    'execute_real_transfer',
+    'log_transfer_audit',
     
     # Queries
     'FRAGMENTATION_QUERIES',
@@ -53,6 +58,7 @@ __all__ = [
     'build_pagination',
     'MasterSlaveReplication',
     'execute_master_slave_replication',
+    'execute_profesor_replication',
     'ReplicationConnection'
 ]
 
