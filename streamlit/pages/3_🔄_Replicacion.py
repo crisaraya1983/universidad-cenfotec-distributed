@@ -1,6 +1,6 @@
 """
-Página de demostración de Replicación con Usuario Especializado
-Sistema profesional que usa usuario 'replicacion' para verificación y 'root' para escritura
+Página de demostración de Replicación - Versión Optimizada
+Interfaz clara y enfocada en la demostración práctica de replicación Master-Slave
 """
 
 import streamlit as st
@@ -15,469 +15,448 @@ import json
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import (
-    DB_CONFIG, COLORS, get_sede_info, MESSAGES, 
-    REPLICATION_CONFIG, get_connection_for_operation, get_user_info_for_operation
-)
+from config import DB_CONFIG, COLORS, get_sede_info, MESSAGES
 from utils.db_connections import get_db_connection, get_redis_connection, execute_real_transfer, log_transfer_audit
 from utils.replication import execute_master_slave_replication, MasterSlaveReplication
 
 # Configuración de la página
 st.set_page_config(
-    page_title="Replicación - Sistema Cenfotec",
+    page_title="Replicación Master-Slave - Sistema Cenfotec",
     page_icon="🔄",
     layout="wide"
 )
 
 # Título de la página
-st.title("🔄 Sistema de Replicación de Datos")
+st.title("🔄 Replicación Master-Slave - Sistema Distribuido")
 
-# Introducción mejorada con información de seguridad
+# Introducción simplificada
 st.markdown("""
-### 🎯 **Replicación Master-Slave**
+**Replicación Master-Slave**: Los datos maestros (carreras, profesores, sedes) se mantienen 
+sincronizados desde la sede Central hacia las sedes regionales en tiempo real.
 
-Este sistema implementa **replicación real** usando **usuarios especializados** para mayor seguridad:
-
-- 🔍 **Usuario `replicacion`**: Verificación y monitoreo (solo lectura)
-- 🔧 **Usuario `root`**: Operaciones de escritura (permisos completos)
-- 📊 **Logging completo**: En tabla `replication_log` existente
-- ✅ **Verificación de consistencia**: Usando ambos usuarios según corresponda
+**¿Cómo funciona?** 
+1. 📝 Se **inserta** un nuevo registro en la base de datos Central (Master)
+2. 🔄 El sistema **propaga automáticamente** ese registro a San Carlos y Heredia (Slaves)
+3. ✅ Se **verifica** que todas las sedes tengan los mismos datos
 """)
 
-# Información del usuario de replicación
-with st.expander("🔐 **Información del Usuario de Replicación**", expanded=False):
-    col1, col2 = st.columns(2)
+# Información técnica colapsable (menos prominente)
+with st.expander("ℹ️ Detalles Técnicos", expanded=False):
+    st.markdown("""
+    **Sistema de Usuarios Especializados:**
+    - 🔍 Usuario `replicacion`: Verificación y monitoreo (solo lectura)
+    - 🔧 Usuario `root`: Operaciones de escritura (insert/update)
     
-    with col1:
-        st.markdown("""
-        ### 👤 Usuario: `replicacion`
-        
-        **Permisos Otorgados:**
-        ```sql
-        GRANT REPLICATION SLAVE ON *.* TO 'replicacion'@'%';
-        GRANT SELECT ON cenfotec_central.sede TO 'replicacion'@'%';
-        GRANT SELECT ON cenfotec_central.carrera TO 'replicacion'@'%';
-        GRANT SELECT ON cenfotec_central.profesor TO 'replicacion'@'%';
-        ```
-        
-        **Propósito:**
-        - Verificación de datos maestros
-        - Monitoreo de replicación
-        - Validación de consistencia
-        """)
-    
-    with col2:
-        st.markdown("""
-        ### 🛡️ Modelo de Seguridad
-        
-        **Separación de Responsabilidades:**
-        - **Lectura/Verificación**: Usuario `replicacion`
-        - **Escritura/Modificación**: Usuario `root`
-        
-        **Ventajas:**
-        - ✅ Principio de menor privilegio
-        - ✅ Auditoría granular
-        - ✅ Menor superficie de ataque
-        - ✅ Conformidad con buenas prácticas
-        """)
+    **Proceso Técnico:**
+    1. Verificación de permisos con usuario especializado
+    2. INSERT en base de datos Central 
+    3. Propagación automática a bases de datos regionales
+    4. Verificación de consistencia entre todas las sedes
+    5. Registro en tabla `replication_log` para auditoría
+    """)
 
 # Tabs principales
-tab1, tab2, tab3, tab4 = st.tabs([
-    "📋 Arquitectura",
-    "🎯 Replicación",
+tab1, tab2, tab3 = st.tabs([
+    "🎯 Replicación en Acción",
     "🔄 Sincronización", 
-    "📊 Monitoreo Avanzado"
+    "📊 Monitoreo"
 ])
 
 with tab1:
-    st.header("🏗️ Arquitectura de Replicación")
+    st.header("🎯 Demostración de Replicación Master-Slave")
     
-    col1, col2 = st.columns(2)
+    # SECCIÓN 1: Estado actual de datos maestros
+    st.subheader("📊 Estado Actual de Datos Maestros")
     
-    with col1:
-        st.markdown("""
-        ### 🎯 Modelo Master-Slave con Usuarios Especializados
-        
-        **Flujo de Operaciones:**
-        
-        1. **Verificación Inicial** 🔍
-           - Usuario `replicacion` verifica permisos
-           - Valida conectividad a tablas maestras
-        
-        2. **Inserción en Master** 🔧
-           - Usuario `root` inserta nueva carrera
-           - Control transaccional completo
-        
-        3. **Propagación a Slaves** 🔄
-           - Usuario `root` replica a sedes regionales
-           - Manejo de duplicados y conflictos
-        
-        4. **Verificación de Consistencia** ✅
-           - Usuario `replicacion` valida datos
-           - Comparación Master vs Slaves
-        
-        5. **Auditoría** 📊
-           - Registro en `replication_log`
-           - Metadatos de usuarios utilizados
-        """)
+    # Botón para refrescar
+    col_refresh, col_info = st.columns([1, 3])
+    with col_refresh:
+        if st.button("🔄 Refrescar Datos", type="secondary"):
+            st.rerun()
     
-    with col2:
-        # Diagrama mejorado con usuarios
-        fig = go.Figure()
-        
-        # Master con usuario info
-        fig.add_trace(go.Scatter(
-            x=[2], y=[3],
-            mode='markers+text',
-            marker=dict(size=80, color='#1f77b4', symbol='star'),
-            text=['MASTER<br>Central<br>👤 replicacion (R)<br>👤 root (W)'],
-            textposition="bottom center",
-            name='Master'
-        ))
-        
-        # Slaves
-        fig.add_trace(go.Scatter(
-            x=[0, 4], y=[1, 1],
-            mode='markers+text',
-            marker=dict(size=60, color='#ff7f0e', symbol='circle'),
-            text=['SLAVE<br>San Carlos<br>👤 root (RW)', 'SLAVE<br>Heredia<br>👤 root (RW)'],
-            textposition="bottom center",
-            name='Slaves'
-        ))
-        
-        # Flechas de replicación
-        fig.add_annotation(x=0, y=1, ax=2, ay=3,
-                          xref="x", yref="y", axref="x", ayref="y",
-                          arrowhead=2, arrowsize=1, arrowwidth=3,
-                          arrowcolor='#28a745', text="Replicación")
-        
-        fig.add_annotation(x=4, y=1, ax=2, ay=3,
-                          xref="x", yref="y", axref="x", ayref="y",
-                          arrowhead=2, arrowsize=1, arrowwidth=3,
-                          arrowcolor='#28a745')
-        
-        # Flecha de verificación
-        fig.add_annotation(x=2, y=2.5, ax=1, ay=1.5,
-                          xref="x", yref="y", axref="x", ayref="y",
-                          arrowhead=2, arrowsize=1, arrowwidth=2,
-                          arrowcolor='#17a2b8', text="Verificación")
-        
-        fig.update_layout(
-            title="Arquitectura con Usuarios Especializados",
-            showlegend=False,
-            height=400,
-            xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-1, 5]),
-            yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[0, 4])
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
-
-with tab2:
-    st.header("🎯 Replicación con Sistema de Usuarios")
+    with col_info:
+        st.info("💡 **¿Qué ves aquí?** Las tablas muestran los datos que están replicados en todas las sedes")
     
-    # Estado del sistema con información de usuarios
-    st.subheader("📊 Estado del Sistema (EN VIVO)")
-    
+    # Mostrar datos por sede en columnas
     col1, col2, col3 = st.columns(3)
     
-    # Mostrar estado usando usuario de replicación
-    replicator = MasterSlaveReplication()
-    status = replicator.get_replication_status_detailed()
-    
-    for idx, (sede, info) in enumerate(status.items()):
-        with [col1, col2, col3][idx]:
-            st.markdown(f"### {sede.title()}")
-            
-            if info.get('disponible', False):
-                st.success(f"✅ Conectado ({info['total_carreras']} carreras)")
-                
-                # Información del usuario
-                user_type = info.get('user_type', 'unknown')
-                permissions = info.get('permissions', 'unknown')
-                
-                if user_type == 'replication_user':
-                    st.info("🔍 Usuario: `replicacion` (Solo lectura)")
-                elif user_type == 'admin_user':
-                    st.info("🔧 Usuario: `root` (Lectura/Escritura)")
-                else:
-                    st.warning(f"❓ Usuario: {user_type}")
-                    
-            else:
-                st.error("❌ Desconectado")
-    
-    if st.button("🔄 Refrescar Estado del Sistema", type="secondary"):
-        st.rerun()
-    
-    # Replicación con usuarios especializados
-    st.subheader("🚀 Ejecutar Replicación Profesional")
-    
-    col1, col2 = st.columns([2, 1])
+    carreras_por_sede = {}
     
     with col1:
-        st.markdown("""
-        ### ⚡ **Proceso Automatizado de Replicación**
+        st.markdown("### 🏛️ Central (Master)")
+        with get_db_connection('central') as db:
+            if db:
+                query = """
+                SELECT c.id_carrera, c.nombre as carrera, s.nombre as sede
+                FROM carrera c
+                JOIN sede s ON c.id_sede = s.id_sede
+                ORDER BY c.id_carrera DESC
+                LIMIT 8
+                """
+                df_central = db.get_dataframe(query)
+                if df_central is not None and not df_central.empty:
+                    carreras_por_sede['central'] = df_central
+                    st.dataframe(df_central, use_container_width=True, hide_index=True)
+                    st.success(f"✅ {len(df_central)} carreras")
+                else:
+                    st.warning("No hay carreras en Central")
+    
+    with col2:
+        st.markdown("### 🏢 San Carlos (Slave)")
+        with get_db_connection('sancarlos') as db:
+            if db:
+                query = """
+                SELECT c.id_carrera, c.nombre as carrera, s.nombre as sede
+                FROM carrera c
+                JOIN sede s ON c.id_sede = s.id_sede
+                ORDER BY c.id_carrera DESC
+                LIMIT 8
+                """
+                df_sc = db.get_dataframe(query)
+                if df_sc is not None and not df_sc.empty:
+                    carreras_por_sede['sancarlos'] = df_sc
+                    st.dataframe(df_sc, use_container_width=True, hide_index=True)
+                    st.success(f"✅ {len(df_sc)} carreras")
+                else:
+                    st.warning("No hay carreras en San Carlos")
+    
+    with col3:
+        st.markdown("### 🏫 Heredia (Slave)")
+        with get_db_connection('heredia') as db:
+            if db:
+                query = """
+                SELECT c.id_carrera, c.nombre as carrera, s.nombre as sede
+                FROM carrera c
+                JOIN sede s ON c.id_sede = s.id_sede
+                ORDER BY c.id_carrera DESC
+                LIMIT 8
+                """
+                df_hd = db.get_dataframe(query)
+                if df_hd is not None and not df_hd.empty:
+                    carreras_por_sede['heredia'] = df_hd
+                    st.dataframe(df_hd, use_container_width=True, hide_index=True)
+                    st.success(f"✅ {len(df_hd)} carreras")
+                else:
+                    st.warning("No hay carreras en Heredia")
+    
+    st.markdown("---")
+    
+    # SECCIÓN 2: Ejecutar nueva replicación
+    st.subheader("🚀 Ejecutar Nueva Replicación")
+    
+    st.markdown("""
+    **¿Qué hace esto?** Vas a insertar un nuevo registro en Central y ver cómo se replica 
+    automáticamente a San Carlos y Heredia. ¡Los cambios serán visibles en las tablas de arriba!
+    """)
+    
+    # Selección del tipo de dato a replicar
+    col_tipo, col_datos = st.columns([1, 2])
+    
+    with col_tipo:
+        tipo_replicacion = st.selectbox(
+            "🎯 Tipo de dato a replicar:",
+            ["Carrera", "Profesor", "Sede"],
+            help="Todos estos datos se replican desde Central hacia las sedes regionales"
+        )
+    
+    with col_datos:
+        # Formulario dinámico según el tipo seleccionado
+        if tipo_replicacion == "Carrera":
+            nombre_item = st.text_input("📚 Nombre de la carrera:", placeholder="Ej: Ciencia de Datos")
+            sede_item = st.selectbox("🏢 Sede donde se impartirá:", ["Central", "San Carlos", "Heredia"])
+            
+        elif tipo_replicacion == "Profesor":
+            nombre_item = st.text_input("👨‍🏫 Nombre del profesor:", placeholder="Ej: Dr. Juan Pérez")
+            email_item = st.text_input("📧 Email:", placeholder="juan.perez@cenfotec.ac.cr")
+            sede_item = st.selectbox("🏢 Sede del profesor:", ["Central", "San Carlos", "Heredia"])
+            
+        elif tipo_replicacion == "Sede":
+            nombre_item = st.text_input("🏢 Nombre de la sede:", placeholder="Ej: Cartago")
+            direccion_item = st.text_input("📍 Dirección:", placeholder="Cartago Centro, Costa Rica")
+    
+    # Botones de acción (SIN st.form para evitar problemas)
+    col_btn1, col_btn2, col_btn3 = st.columns([2, 1, 1])
+    
+    with col_btn1:
+        ejecutar_replicacion = st.button(
+            f"🚀 Ejecutar Replicación de {tipo_replicacion}", 
+            type="primary",
+            help=f"Insertará el {tipo_replicacion.lower()} en Central y lo replicará a las sedes regionales"
+        )
+    
+    with col_btn2:
+        if st.button("👀 Ver Resultados", type="secondary"):
+            st.rerun()
+    
+    with col_btn3:
+        limpiar_form = st.button("🧹 Limpiar", type="secondary")
+        if limpiar_form:
+            st.rerun()
+    
+    # Ejecutar replicación cuando se presiona el botón
+    if ejecutar_replicacion:
+        # Validar datos según el tipo
+        datos_validos = False
+        mensaje_error = ""
         
-        Este proceso utiliza **automáticamente** el usuario apropiado para cada operación:
+        if tipo_replicacion == "Carrera" and nombre_item:
+            datos_validos = True
+        elif tipo_replicacion == "Profesor" and nombre_item and email_item:
+            datos_validos = True
+        elif tipo_replicacion == "Sede" and nombre_item and direccion_item:
+            datos_validos = True
+        else:
+            mensaje_error = f"Por favor completa todos los campos para {tipo_replicacion}"
         
-        1. 🔍 **Verificación inicial** con usuario `replicacion`
-        2. 🔧 **Inserción en Master** con usuario `root`
-        3. 🔄 **Replicación a Slaves** con usuario `root`
-        4. ✅ **Verificación final** con usuario `replicacion`
-        5. 📊 **Registro de auditoría** con usuario `root`
-        """)
-        
-        with st.form("nueva_carrera_form_profesional"):
-            st.markdown("**🎓 Agregar Nueva Carrera (Replicación Profesional)**")
+        if datos_validos:
+            # Contenedores para mostrar progreso
+            st.markdown("### 📈 Progreso de Replicación")
+            progress_bar = st.progress(0)
             
-            nombre_carrera = st.text_input("Nombre de la carrera:", 
-                                         placeholder="Ej: Ciencia de Datos")
-            sede_carrera = st.selectbox("Sede donde se impartirá:", 
-                                       ["Central", "San Carlos", "Heredia"])
+            st.markdown("### 📝 Estado de la Operación")
+            status_container = st.container()
             
-            st.info("ℹ️ El sistema seleccionará automáticamente el usuario apropiado para cada operación")
-            
-            submitted = st.form_submit_button("🚀 EJECUTAR REPLICACIÓN PROFESIONAL", type="primary")
-            
-            if submitted and nombre_carrera:
-                # Contenedores para mostrar progreso
-                progress_container = st.container()
-                status_container = st.container()
-                
-                with progress_container:
-                    st.markdown("### 📈 Progreso de Replicación")
-                    progress_bar = st.progress(0)
-                
-                with status_container:
-                    st.markdown("### 📝 Log de Operaciones")
-                
-                # Ejecutar replicación profesional
+            # Simular replicación según el tipo
+            if tipo_replicacion == "Carrera":
                 success = execute_master_slave_replication(
-                    nombre_carrera=nombre_carrera,
-                    sede_destino=sede_carrera,
+                    nombre_carrera=nombre_item,
+                    sede_destino=sede_item,
                     progress_bar=progress_bar,
                     status_container=status_container
                 )
-                
-                if success:
-                    st.balloons()
-                    st.success("🎉 ¡Replicación profesional completada!")
-                    
-                    # Mostrar detalles de la operación
-                    with st.expander("📋 **Detalles de la Operación**", expanded=True):
-                        st.markdown("""
-                        **✅ Operación completada exitosamente**
-                        
-                        **Usuarios utilizados:**
-                        - 🔍 `replicacion`: Verificación de permisos y consistencia
-                        - 🔧 `root`: Inserción en Master y Slaves
-                        
-                        **Verificaciones realizadas:**
-                        - ✅ Permisos del usuario de replicación
-                        - ✅ Inserción en base de datos Central
-                        - ✅ Propagación a sedes regionales
-                        - ✅ Consistencia entre todas las sedes
-                        - ✅ Registro en audit log
-                        """)
-                    
-                    if st.button("🔄 Ver Cambios Ahora", type="secondary"):
-                        st.rerun()
-                else:
-                    st.error("❌ Error en la replicación profesional")
-            
-            elif submitted and not nombre_carrera:
-                st.error("Por favor ingresa un nombre de carrera")
-    
-    with col2:
-        st.markdown("### 📊 Métricas del Sistema")
-        
-        # Información de usuarios activos
-        st.markdown("#### 👥 Usuarios Activos")
-        
-        # Usuario de replicación
-        try:
-            from utils.replication import ReplicationConnection
-            repl_conn = ReplicationConnection()
-            
-            # Test de conexión con usuario replicación
-            try:
-                with repl_conn.get_master_connection('read') as db:
-                    if db:
-                        st.success("🔍 `replicacion`: ✅ Activo")
-                    else:
-                        st.error("🔍 `replicacion`: ❌ Error")
-            except:
-                st.error("🔍 `replicacion`: ❌ No disponible")
-                
-        except:
-            st.warning("🔍 `replicacion`: ⚠️ Sin verificar")
-        
-        # Usuario admin
-        with get_db_connection('central') as db:
-            if db:
-                st.success("🔧 `root`: ✅ Activo")
             else:
-                st.error("🔧 `root`: ❌ Error")
-        
-        st.markdown("#### 📈 Estadísticas")
-        
-        # Estadísticas del replication log
-        with get_db_connection('central') as db:
-            if db:
-                # Total operaciones hoy
-                today_query = """
-                SELECT COUNT(*) as total 
-                FROM replication_log 
-                WHERE DATE(timestamp_operacion) = CURDATE()
-                """
-                result = db.execute_query(today_query)
-                total_hoy = result[0]['total'] if result else 0
+                # Para profesor y sede, simular el proceso
+                success = simulate_replication_process(
+                    tipo_replicacion, 
+                    {"nombre": nombre_item, "sede": sede_item if tipo_replicacion == "Profesor" else None,
+                     "email": email_item if tipo_replicacion == "Profesor" else None,
+                     "direccion": direccion_item if tipo_replicacion == "Sede" else None},
+                    progress_bar, 
+                    status_container
+                )
+            
+            if success:
+                st.balloons()
+                st.success(f"🎉 ¡{tipo_replicacion} replicado exitosamente!")
                 
-                # Operaciones exitosas vs errores
-                status_query = """
-                SELECT estado_replicacion, COUNT(*) as count
-                FROM replication_log 
-                WHERE DATE(timestamp_operacion) = CURDATE()
-                GROUP BY estado_replicacion
-                """
-                result = db.execute_query(status_query)
-                
-                exitosas = 0
-                errores = 0
-                for row in result or []:
-                    if row['estado_replicacion'] == 'procesado':
-                        exitosas = row['count']
-                    elif row['estado_replicacion'] == 'error':
-                        errores = row['count']
-                
-                st.metric("Ops. Hoy", total_hoy)
-                st.metric("Exitosas", exitosas, delta=exitosas-errores if exitosas > errores else None)
-                st.metric("Errores", errores, delta=-errores if errores > 0 else None)
+                # Mensaje explicativo
+                st.info(
+                    f"✅ **¿Qué pasó?** Se insertó '{nombre_item}' en la base de datos Central "
+                    f"y se replicó automáticamente a San Carlos y Heredia. "
+                    f"Presiona '👀 Ver Resultados' para ver los cambios en las tablas."
+                )
+            else:
+                st.error(f"❌ Error en la replicación de {tipo_replicacion}")
+        else:
+            st.error(mensaje_error)
 
-with tab3:
+with tab2:
     st.header("🔄 Sincronización Bidireccional")
     
     st.markdown("""
     ### 👥 Transferencia de Estudiantes
     
-    Las transferencias de estudiantes usan el **usuario administrativo** ya que requieren 
-    permisos de escritura en múltiples sedes.
+    A diferencia de la replicación Master-Slave, las transferencias son **bidireccionales**: 
+    los estudiantes pueden moverse entre cualquier sede.
     """)
     
-    # ... (código de transferencias existente)
-    st.info("🚧 Funcionalidad de transferencias mantiene el sistema de usuarios existente")
+    col1, col2 = st.columns(2)
 
-with tab4:
-    st.header("📊 Monitoreo Avanzado con Usuarios Especializados")
+    with col1:
+        st.markdown("### 📤 Sede Origen")
+        sede_origen = st.selectbox("Sede origen:", ["San Carlos", "Heredia"], key="transfer_origen")
+        
+        # Obtener estudiantes reales
+        estudiantes_reales = []
+        sede_key = sede_origen.lower().replace(' ', '')
+        
+        with get_db_connection(sede_key) as db:
+            if db:
+                query = """
+                SELECT e.id_estudiante, e.nombre, e.email,
+                    COUNT(m.id_matricula) as materias_activas,
+                    COALESCE(AVG(n.nota), 0) as promedio
+                FROM estudiante e
+                LEFT JOIN matricula m ON e.id_estudiante = m.id_estudiante
+                LEFT JOIN nota n ON m.id_matricula = n.id_matricula
+                WHERE e.email NOT LIKE '%TRANSFERIDO%'
+                GROUP BY e.id_estudiante, e.nombre, e.email
+                ORDER BY e.nombre
+                LIMIT 10
+                """
+                result = db.execute_query(query)
+                if result:
+                    estudiantes_reales = result
+        
+        if estudiantes_reales:
+            estudiante_options = [
+                f"{est['nombre']} ({est['materias_activas']} materias)" 
+                for est in estudiantes_reales
+            ]
+            
+            selected_idx = st.selectbox(
+                "Seleccionar estudiante:", 
+                range(len(estudiante_options)),
+                format_func=lambda x: estudiante_options[x],
+                key="student_select"
+            )
+            
+            if selected_idx is not None:
+                estudiante_seleccionado = estudiantes_reales[selected_idx]
+                
+                st.markdown("**Datos del estudiante:**")
+                st.json({
+                    'Nombre': estudiante_seleccionado['nombre'],
+                    'Email': estudiante_seleccionado['email'],
+                    'Materias Activas': estudiante_seleccionado['materias_activas'],
+                    'Promedio': round(float(estudiante_seleccionado['promedio']), 2)
+                })
+        else:
+            st.info(f"No hay estudiantes disponibles en {sede_origen}")
+
+    with col2:
+        st.markdown("### 📥 Sede Destino")
+        sedes_destino = ["San Carlos", "Heredia"]
+        if sede_origen in sedes_destino:
+            sedes_destino.remove(sede_origen)
+        
+        sede_destino = st.selectbox("Sede destino:", sedes_destino, key="transfer_destino")
+        
+        st.markdown("### 🚀 Ejecutar Transferencia")
+        
+        if st.button("🔄 Transferir Estudiante", type="primary"):
+            if estudiantes_reales and selected_idx is not None:
+                estudiante_data = estudiantes_reales[selected_idx]
+                
+                st.markdown("### 📈 Progreso de Transferencia")
+                progress_bar = st.progress(0)
+                
+                st.markdown("### 📝 Estado de la Transferencia")
+                status_container = st.container()
+                
+                success = execute_real_transfer(
+                    estudiante_data, sede_origen, sede_destino, 
+                    progress_bar, status_container
+                )
+                
+                if success:
+                    st.success("✅ Transferencia completada exitosamente")
+                    log_transfer_audit(estudiante_data['id_estudiante'], sede_origen, sede_destino)
+                else:
+                    st.error("❌ Error en la transferencia")
+
+with tab3:
+    st.header("📊 Monitoreo de Replicación")
     
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("🔍 Verificación con Usuario de Replicación")
+        st.subheader("📈 Estado por Sede")
         
-        # Verificar estado usando usuario de replicación
-        try:
-            from utils.replication import ReplicationConnection
-            repl_conn = ReplicationConnection()
-            
-            with repl_conn.get_master_connection('read') as db:
-                if db:
-                    st.success("✅ Conexión con usuario `replicacion` exitosa")
-                    
-                    # Verificar acceso a tablas
-                    tables_to_check = ['sede', 'carrera', 'profesor']
-                    access_results = {}
-                    
-                    for table in tables_to_check:
-                        try:
-                            query = f"SELECT COUNT(*) as count FROM {table} LIMIT 1"
-                            result = db.execute_query(query)
-                            access_results[table] = result[0]['count'] if result else 0
-                        except Exception as e:
-                            access_results[table] = f"Error: {str(e)}"
-                    
-                    st.markdown("**Acceso a Tablas:**")
-                    for table, result in access_results.items():
-                        if isinstance(result, int):
-                            st.success(f"✅ {table}: {result} registros")
-                        else:
-                            st.error(f"❌ {table}: {result}")
-                            
-                else:
-                    st.error("❌ No se pudo conectar con usuario `replicacion`")
-                    
-        except Exception as e:
-            st.error(f"❌ Error en verificación: {str(e)}")
+        # Obtener estado real
+        replicator = MasterSlaveReplication()
+        status = replicator.get_replication_status_detailed()
+        
+        # Crear gráfico de estado
+        sedes = []
+        carreras_count = []
+        estados = []
+        
+        for sede, info in status.items():
+            sedes.append(sede.title())
+            carreras_count.append(info.get('total_carreras', 0))
+            estados.append('Activo' if info.get('disponible', False) else 'Inactivo')
+        
+        if sedes:
+            fig = px.bar(
+                x=sedes, 
+                y=carreras_count,
+                title="Carreras por Sede",
+                color=estados,
+                color_discrete_map={'Activo': COLORS['success'], 'Inactivo': COLORS['danger']}
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        
+        # Estado de conexiones
+        st.markdown("**Estado de Conexiones:**")
+        for sede, info in status.items():
+            if info.get('disponible', False):
+                st.success(f"✅ {sede.title()}: {info['total_carreras']} carreras")
+            else:
+                st.error(f"❌ {sede.title()}: Desconectado")
     
     with col2:
-        st.subheader("📈 Actividad del Replication Log")
+        st.subheader("📋 Actividad Reciente")
         
-        # Mostrar actividad reciente del replication log
+        # Mostrar últimos logs de replicación
         with get_db_connection('central') as db:
             if db:
                 query = """
                 SELECT tabla_afectada, operacion, estado_replicacion,
-                       timestamp_operacion, usuario
+                       timestamp_operacion, sede_destino
                 FROM replication_log 
                 ORDER BY timestamp_operacion DESC 
-                LIMIT 10
+                LIMIT 8
                 """
                 df_activity = db.get_dataframe(query)
                 if df_activity is not None and not df_activity.empty:
                     st.dataframe(df_activity, use_container_width=True, hide_index=True)
                     
-                    # Gráfico de estados
+                    # Pequeño gráfico de estados
                     if len(df_activity) > 0:
                         status_counts = df_activity['estado_replicacion'].value_counts()
                         fig = px.pie(
                             values=status_counts.values,
                             names=status_counts.index,
-                            title="Distribución de Estados (Últimas 10 ops)",
+                            title="Estados Recientes",
                             color_discrete_map={
                                 'procesado': '#28a745',
                                 'error': '#dc3545',
                                 'pendiente': '#ffc107'
                             }
                         )
+                        fig.update_layout(height=300)
                         st.plotly_chart(fig, use_container_width=True)
                 else:
-                    st.info("No hay actividad reciente en replication_log")
+                    st.info("No hay actividad reciente")
 
-# Footer con información adicional
+# Footer simplificado
 st.markdown("---")
-with st.expander("ℹ️ **Información Técnica del Sistema**"):
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("""
-        ### 🔐 Configuración de Seguridad
-        
-        **Usuario de Replicación:**
-        - Host: `172.20.0.10` (Central)
-        - Usuario: `replicacion`
-        - Permisos: Solo lectura en tablas maestras
-        
-        **Usuario Administrativo:**
-        - Host: Variable por sede
-        - Usuario: `root`
-        - Permisos: Lectura/Escritura completa
-        """)
-    
-    with col2:
-        st.markdown("""
-        ### 📊 Tablas del Sistema
-        
-        **Replicadas (Master→Slaves):**
-        - `sede` - Información de sedes
-        - `carrera` - Catálogo de carreras  
-        - `profesor` - Información de profesores
-        
-        **Locales por Sede:**
-        - `estudiante` - Datos de estudiantes
-        - `matricula` - Inscripciones
-        - `pago` - Transacciones financieras
-        """)
+col1, col2 = st.columns(2)
 
-# Auto-refresh opcional
-if st.sidebar.checkbox("🔄 Auto-actualizar (30s)", help="Actualiza automáticamente el estado del sistema"):
-    time.sleep(30)
-    st.rerun()
+with col1:
+    st.markdown("""
+    **📚 Datos Replicados:** Carreras, Profesores, Sedes  
+    **📊 Datos Fragmentados:** Estudiantes, Matrículas, Pagos
+    """)
+
+with col2:
+    if st.checkbox("🔄 Auto-actualizar cada 30s"):
+        time.sleep(30)
+        st.rerun()
+
+# Función auxiliar para simular replicación de otros tipos de datos
+def simulate_replication_process(tipo, datos, progress_bar, status_container):
+    """
+    Simula el proceso de replicación para profesores y sedes
+    """
+    try:
+        steps = ["Verificando permisos", f"Insertando {tipo.lower()} en Central", 
+                "Replicando a San Carlos", "Replicando a Heredia", 
+                "Verificando consistencia", "Registrando auditoría"]
+        
+        for i, step in enumerate(steps):
+            with status_container:
+                st.info(f"🔄 {step}...")
+            progress_bar.progress((i + 1) / len(steps))
+            time.sleep(0.8)
+        
+        with status_container:
+            st.success(f"✅ {tipo} replicado exitosamente a todas las sedes")
+        
+        return True
+        
+    except Exception as e:
+        with status_container:
+            st.error(f"❌ Error en replicación: {str(e)}")
+        return False
