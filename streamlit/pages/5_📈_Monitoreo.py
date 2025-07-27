@@ -432,8 +432,8 @@ with tab4:
                         
                         df_tables = db.get_dataframe(query, (db.config['database'],))
                         if df_tables is not None:
-                            df_tables['data_mb'] = df_tables['data_mb'].round(2)
-                            df_tables['index_mb'] = df_tables['index_mb'].round(2)
+                            df_tables['data_mb'] = df_tables['data_mb'].astype(float).round(2)
+                            df_tables['index_mb'] = df_tables['index_mb'].astype(float).round(2)
                             st.dataframe(df_tables, use_container_width=True, hide_index=True)
         
         elif diagnostic_tool == "Ver Logs":
@@ -478,7 +478,7 @@ with tab4:
         elif diagnostic_tool == "Estadísticas de Cache":
             redis_conn = get_redis_connection()
             
-            if redis_conn and redis_conn.redis_client:
+            if redis_conn and redis_conn.is_connected and redis_conn.redis_client:
                 try:
                     # Obtener info de Redis
                     info = redis_conn.redis_client.info()
@@ -494,14 +494,26 @@ with tab4:
                                 info.get('connected_clients', 0))
                     
                     with col2:
-                        st.metric("Hit Rate", 
-                                f"{(info.get('keyspace_hits', 0) / (info.get('keyspace_hits', 0) + info.get('keyspace_misses', 1)) * 100):.1f}%")
-                        st.metric("Misses", 
-                                f"{info.get('keyspace_misses', 0):,}")
-                        st.metric("Keys Totales", 
-                                info.get('db0', {}).get('keys', 0))
-                except:
-                    st.error("No se pudo conectar con Redis")
+                        hits = info.get('keyspace_hits', 0)
+                        misses = info.get('keyspace_misses', 0)
+                        total = hits + misses
+                        hit_rate = (hits / total * 100) if total > 0 else 0
+                        
+                        st.metric("Hit Rate", f"{hit_rate:.1f}%")
+                        st.metric("Misses", f"{misses:,}")
+                        
+                        # Manejo correcto de db0
+                        db_info = info.get('db0')
+                        if db_info and isinstance(db_info, dict):
+                            keys_count = db_info.get('keys', 0)
+                        else:
+                            keys_count = 0
+                        st.metric("Keys Totales", keys_count)
+                        
+                except Exception as e:
+                    st.error(f"Error al obtener estadísticas de Redis: {str(e)}")
+            else:
+                st.error("Redis no está disponible")
         
         elif diagnostic_tool == "Test de Latencia":
             if st.button("🏃 Ejecutar Test de Latencia", use_container_width=True):
@@ -573,7 +585,7 @@ with tab5:
         fig_hist = px.line(historical_data, x='Tiempo', 
                           y=['Central', 'San Carlos', 'Heredia'],
                           title=f'Transacciones - {period}')
-        fig_hist.update_yaxis(title="Transacciones/min")
+        fig_hist.update_layout(title="Transacciones/min")
     
     elif metric_type == "Latencia":
         historical_data = pd.DataFrame({
@@ -586,7 +598,7 @@ with tab5:
         fig_hist = px.line(historical_data, x='Tiempo', 
                           y=['Central', 'San Carlos', 'Heredia'],
                           title=f'Latencia Promedio - {period}')
-        fig_hist.update_yaxis(title="Latencia (ms)")
+        fig_hist.update_layout(title="Latencia (ms)")
     
     elif metric_type == "Errores":
         historical_data = pd.DataFrame({
@@ -599,7 +611,7 @@ with tab5:
         fig_hist = px.area(historical_data, x='Tiempo', 
                           y=['Timeouts', 'Conexión', 'Query'],
                           title=f'Errores por Tipo - {period}')
-        fig_hist.update_yaxis(title="Errores/hora")
+        fig_hist.update_layout(title="Errores/hora")
     
     else:  # Uso de recursos
         historical_data = pd.DataFrame({
@@ -612,7 +624,7 @@ with tab5:
         fig_hist = px.line(historical_data, x='Tiempo', 
                           y=['CPU %', 'RAM %', 'Disco %'],
                           title=f'Uso de Recursos - {period}')
-        fig_hist.update_yaxis(title="Porcentaje de Uso")
+        fig_hist.update_layout(title="Porcentaje de Uso")
     
     # Mostrar gráfico
     st.plotly_chart(fig_hist, use_container_width=True)
@@ -669,49 +681,26 @@ with tab5:
     st.dataframe(styled_events, use_container_width=True, hide_index=True)
 
 # Sidebar con controles y resumen
+# Reemplazar la sección del sidebar con:
 with st.sidebar:
     st.markdown("### 📈 Panel de Control")
     
-    # Estado general del sistema
-    st.markdown("**Estado General**")
+    # Estado real del sistema
+    status = test_all_connections()
+    active = sum(status.values())
+    total = len(status)
+    health_score = (active / total) * 100
     
-    system_health = random.choice(['Óptimo', 'Bueno', 'Degradado'])
-    if system_health == 'Óptimo':
-        st.success(f"✅ Sistema: {system_health}")
-    elif system_health == 'Bueno':
-        st.warning(f"⚠️ Sistema: {system_health}")
+    if health_score == 100:
+        st.success("✅ Sistema: Óptimo")
+    elif health_score >= 80:
+        st.warning("⚠️ Sistema: Bueno")
     else:
-        st.error(f"❌ Sistema: {system_health}")
+        st.error("❌ Sistema: Degradado")
+    
     
     st.markdown("---")
     
-    # Alertas activas
-    st.markdown("### 🚨 Alertas Activas")
-    
-    alerts = [
-        "⚠️ Cache hit rate bajo (65%)",
-        "⚠️ Espacio en disco >70%",
-        "ℹ️ Backup programado 02:00"
-    ]
-    
-    for alert in alerts:
-        st.caption(alert)
-    
-    st.markdown("---")
-    
-    # Acciones rápidas
-    st.markdown("### ⚡ Acciones Rápidas")
-    
-    if st.button("🔄 Limpiar Cache", use_container_width=True):
-        st.info("Cache limpiado")
-    
-    if st.button("📊 Generar Reporte", use_container_width=True):
-        st.info("Generando reporte...")
-    
-    if st.button("🔍 Análisis Completo", use_container_width=True):
-        st.info("Iniciando análisis...")
-    
-    st.markdown("---")
     
     # Información del sistema
     st.markdown("### ℹ️ Información")

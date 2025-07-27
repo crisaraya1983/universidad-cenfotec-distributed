@@ -125,7 +125,7 @@ def show_connection_status():
     st.markdown("### 🏥 Salud General del Sistema")
 
     # Calcular score de salud
-    conexiones_activas = sum(1 for status in [*status.values(), lb_status])
+    conexiones_activas = sum(1 for s in status.values() if s) + (1 if lb_status else 0)
     total_conexiones = len(status) + 1  # +1 para load balancer
     health_score = (conexiones_activas / total_conexiones) * 100
 
@@ -636,13 +636,12 @@ def main():
 with st.sidebar:
     st.markdown("### 🗺️ Navegación")
     st.markdown("""
-    Esta es la página principal del sistema. 
-    Usa el menú de páginas para explorar:
+    **Páginas disponibles:**
     
-    - **📊 Fragmentación**: Ver cómo están distribuidos los datos
-    - **🔄 Replicación**: Monitorear la sincronización entre sedes
-    - **💼 Transacciones**: Ejecutar operaciones distribuidas
-    - **📈 Monitoreo**: Análisis detallado del rendimiento
+    - **📊 Fragmentación**: Visualizar distribución de datos
+    - **🔄 Replicación**: Sincronización entre sedes
+    - **💼 Transacciones**: Operaciones distribuidas
+    - **📈 Monitoreo**: Análisis de rendimiento
     """)
     
     st.markdown("---")
