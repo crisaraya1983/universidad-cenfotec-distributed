@@ -61,6 +61,144 @@ with st.expander("ℹ️ Detalles Técnicos", expanded=False):
     - 🔧 Usuario `root`: Operaciones de escritura
     """)
 
+def obtener_logs_replicacion():
+    """
+    Obtiene los logs de replicación de la base de datos central
+    """
+    query = """
+    SELECT 
+        id,
+        tabla_afectada,
+        operacion,
+        registro_id,
+        datos_nuevos,
+        usuario,
+        sede_destino,
+        estado_replicacion,
+        timestamp_operacion
+    FROM replication_log 
+    ORDER BY timestamp_operacion DESC 
+    LIMIT 50
+    """
+    
+    try:
+        with get_db_connection('central') as db:
+            if db:
+                df = db.get_dataframe(query)
+                return df
+            else:
+                st.error("❌ No se pudo conectar a la base de datos central")
+                return pd.DataFrame()
+    except Exception as e:
+        st.error(f"❌ Error al obtener logs: {str(e)}")
+        return pd.DataFrame()
+
+def mostrar_logs_replicacion():
+    """
+    Muestra los logs de replicación en una tabla formateada
+    """
+    st.subheader("📋 Logs de Replicaciones")
+    
+    # Obtener los logs
+    df_logs = obtener_logs_replicacion()
+    
+    if df_logs.empty:
+        st.info("ℹ️ No hay logs de replicación disponibles")
+        return
+    
+    # Crear tabs para diferentes vistas de los logs
+    tab_recientes, tab_filtros, tab_estadisticas = st.tabs([
+        "🕐 Recientes", 
+        "🔍 Filtros", 
+        "📊 Estadísticas"
+    ])
+    
+    with tab_recientes:
+        st.markdown("**Últimas 20 replicaciones:**")
+        
+        # Formatear el DataFrame para mejor visualización
+        df_display = df_logs.head(20).copy()
+        
+        # Formatear fechas
+        if 'timestamp_operacion' in df_display.columns:
+            df_display['timestamp_operacion'] = pd.to_datetime(df_display['timestamp_operacion']).dt.strftime('%Y-%m-%d %H:%M:%S')
+        
+        # Agregar emojis según el estado
+        if 'estado_replicacion' in df_display.columns:
+            estado_emojis = {
+                'procesado': '✅',
+                'error': '❌',
+                'pendiente': '⏳',
+                'en_proceso': '🔄'
+            }
+            df_display['Estado'] = df_display['estado_replicacion'].map(
+                lambda x: f"{estado_emojis.get(x, '❓')} {x}"
+            )
+        
+        # Mostrar tabla
+        st.dataframe(
+            df_display[['tabla_afectada', 'operacion', 'registro_id', 'sede_destino', 'Estado', 'timestamp_operacion']],
+            use_container_width=True,
+            column_config={
+                "tabla_afectada": "Tabla",
+                "operacion": "Operación",
+                "registro_id": "ID Registro",
+                "sede_destino": "Sede Destino",
+                "Estado": "Estado",
+                "timestamp_operacion": "Fecha"
+            }
+        )
+    
+    with tab_filtros:
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            tablas_disponibles = ['Todas'] + df_logs['tabla_afectada'].unique().tolist()
+            tabla_filtro = st.selectbox("🗃️ Filtrar por tabla:", tablas_disponibles)
+        
+        with col2:
+            estados_disponibles = ['Todos'] + df_logs['estado_replicacion'].unique().tolist()
+            estado_filtro = st.selectbox("📊 Filtrar por estado:", estados_disponibles)
+        
+        with col3:
+            fecha_filtro = st.date_input("📅 Desde fecha:", value=datetime.now().date() - timedelta(days=7))
+        
+        # Aplicar filtros
+        df_filtrado = df_logs.copy()
+        
+        if tabla_filtro != 'Todas':
+            df_filtrado = df_filtrado[df_filtrado['tabla_afectada'] == tabla_filtro]
+        
+        if estado_filtro != 'Todos':
+            df_filtrado = df_filtrado[df_filtrado['estado_replicacion'] == estado_filtro]
+        
+        df_filtrado = df_filtrado[pd.to_datetime(df_filtrado['timestamp_operacion']).dt.date >= fecha_filtro]
+        
+        st.dataframe(df_filtrado, use_container_width=True)
+    
+    with tab_estadisticas:
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Estadísticas por estado
+            estado_counts = df_logs['estado_replicacion'].value_counts()
+            fig_estados = px.pie(
+                values=estado_counts.values,
+                names=estado_counts.index,
+                title="Distribución por Estado"
+            )
+            st.plotly_chart(fig_estados, use_container_width=True)
+        
+        with col2:
+            # Estadísticas por tabla
+            tabla_counts = df_logs['tabla_afectada'].value_counts()
+            fig_tablas = px.bar(
+                x=tabla_counts.index,
+                y=tabla_counts.values,
+                title="Replicaciones por Tabla"
+            )
+            st.plotly_chart(fig_tablas, use_container_width=True)
+
 
 # Tabs principales
 tab1, tab2, tab3 = st.tabs([
@@ -250,12 +388,11 @@ with tab1:
         )
     
     with col_btn2:
-        if st.button("👀 Ver Resultados", type="secondary"):
+        if st.button("🔄 Refrescar", type="secondary"):
             st.rerun()
     
-    with col_btn3:
-        if st.button("🧹 Limpiar", type="secondary"):
-            st.rerun()
+    #with col_btn3:
+        
     
     # Ejecutar replicación cuando se presiona el botón
     if ejecutar_replicacion:
@@ -318,6 +455,11 @@ with tab1:
                 st.error(f"❌ Error en la replicación de {tipo_replicacion}")
         else:
             st.error(mensaje_error)
+
+    if st.button("📋 Ver Logs", type="secondary"):
+            # Crear un expander para mostrar los logs
+            with st.expander("📋 Logs de Replicaciones", expanded=True):
+                mostrar_logs_replicacion()
 
 with tab2:
     st.header("🔄 Sincronización Bidireccional")
