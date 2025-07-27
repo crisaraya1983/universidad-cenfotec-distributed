@@ -1,6 +1,7 @@
+# streamlit/pages/3_🔄_Replicacion.py (VERSIÓN CORREGIDA)
 """
-Página de demostración de Replicación - Versión Optimizada
-Interfaz clara y enfocada en la demostración práctica de replicación Master-Slave
+Página de demostración de Replicación - Versión Corregida
+Sin errores de funciones no definidas, solo Carreras y Profesores
 """
 
 import streamlit as st
@@ -31,28 +32,34 @@ st.title("🔄 Replicación Master-Slave - Sistema Distribuido")
 
 # Introducción simplificada
 st.markdown("""
-**Replicación Master-Slave**: Los datos maestros (carreras, profesores, sedes) se mantienen 
-sincronizados desde la sede Central hacia las sedes regionales en tiempo real.
+**Replicación Master-Slave Completa**: Los datos maestros (carreras, profesores) se mantienen 
+sincronizados desde la sede Central hacia **TODAS** las sedes regionales.
 
 **¿Cómo funciona?** 
 1. 📝 Se **inserta** un nuevo registro en la base de datos Central (Master)
-2. 🔄 El sistema **propaga automáticamente** ese registro a San Carlos y Heredia (Slaves)
-3. ✅ Se **verifica** que todas las sedes tengan los mismos datos
+2. 🔄 El sistema **propaga automáticamente** ese registro a **TODAS** las sedes (San Carlos y Heredia)
+3. ✅ Se **verifica** que todas las sedes tengan la misma información maestral
+
+**💡 Importante:** Después de la replicación, **todas las sedes** tendrán **todas las carreras**, 
+independientemente de para qué sede sea la carrera. Esto asegura consistencia completa.
 """)
 
-# Información técnica colapsable (menos prominente)
+# Información técnica colapsable
 with st.expander("ℹ️ Detalles Técnicos", expanded=False):
     st.markdown("""
-    **Sistema de Usuarios Especializados:**
-    - 🔍 Usuario `replicacion`: Verificación y monitoreo (solo lectura)
-    - 🔧 Usuario `root`: Operaciones de escritura (insert/update)
+    **Modelo de Replicación Completa (según instrucciones del proyecto):**
+    - 🏛️ **Central**: Master que contiene todos los datos
+    - 🏢 **San Carlos**: Slave que recibe TODAS las carreras
+    - 🏫 **Heredia**: Slave que recibe TODAS las carreras
     
-    **Proceso Técnico:**
-    1. Verificación de permisos con usuario especializado
-    2. INSERT en base de datos Central 
-    3. Propagación automática a bases de datos regionales
-    4. Verificación de consistencia entre todas las sedes
-    5. Registro en tabla `replication_log` para auditoría
+    **¿Por qué ahora las sedes no tienen todas las carreras?**
+    - Lo que ves son **datos de carga inicial** (fragmentación inicial)
+    - La **replicación real** se activará cuando agregues una nueva carrera
+    - Después de la primera replicación, verás todas las carreras en todas las sedes
+    
+    **Sistema de Usuarios:**
+    - 🔍 Usuario `replicacion`: Verificación y monitoreo
+    - 🔧 Usuario `root`: Operaciones de escritura
     """)
 
 # Tabs principales
@@ -68,19 +75,16 @@ with tab1:
     # SECCIÓN 1: Estado actual de datos maestros
     st.subheader("📊 Estado Actual de Datos Maestros")
     
-    # Botón para refrescar
     col_refresh, col_info = st.columns([1, 3])
     with col_refresh:
         if st.button("🔄 Refrescar Datos", type="secondary"):
             st.rerun()
     
     with col_info:
-        st.info("💡 **¿Qué ves aquí?** Las tablas muestran los datos que están replicados en todas las sedes")
+        st.info("💡 **Estado Actual**: Datos de carga inicial. **Después de replicar** verás la misma carrera en todas las sedes")
     
-    # Mostrar datos por sede en columnas
+    # Mostrar datos por sede
     col1, col2, col3 = st.columns(3)
-    
-    carreras_por_sede = {}
     
     with col1:
         st.markdown("### 🏛️ Central (Master)")
@@ -90,14 +94,12 @@ with tab1:
                 SELECT c.id_carrera, c.nombre as carrera, s.nombre as sede
                 FROM carrera c
                 JOIN sede s ON c.id_sede = s.id_sede
-                ORDER BY c.id_carrera DESC
-                LIMIT 8
+                ORDER BY c.id_carrera ASC
                 """
                 df_central = db.get_dataframe(query)
                 if df_central is not None and not df_central.empty:
-                    carreras_por_sede['central'] = df_central
                     st.dataframe(df_central, use_container_width=True, hide_index=True)
-                    st.success(f"✅ {len(df_central)} carreras")
+                    st.success(f"✅ {len(df_central)} carreras (Master - Todas)")
                 else:
                     st.warning("No hay carreras en Central")
     
@@ -109,14 +111,12 @@ with tab1:
                 SELECT c.id_carrera, c.nombre as carrera, s.nombre as sede
                 FROM carrera c
                 JOIN sede s ON c.id_sede = s.id_sede
-                ORDER BY c.id_carrera DESC
-                LIMIT 8
+                ORDER BY c.id_carrera ASC
                 """
                 df_sc = db.get_dataframe(query)
                 if df_sc is not None and not df_sc.empty:
-                    carreras_por_sede['sancarlos'] = df_sc
                     st.dataframe(df_sc, use_container_width=True, hide_index=True)
-                    st.success(f"✅ {len(df_sc)} carreras")
+                    st.success(f"✅ {len(df_sc)} carreras (Datos iniciales)")
                 else:
                     st.warning("No hay carreras en San Carlos")
     
@@ -128,14 +128,12 @@ with tab1:
                 SELECT c.id_carrera, c.nombre as carrera, s.nombre as sede
                 FROM carrera c
                 JOIN sede s ON c.id_sede = s.id_sede
-                ORDER BY c.id_carrera DESC
-                LIMIT 8
+                ORDER BY c.id_carrera ASC
                 """
                 df_hd = db.get_dataframe(query)
                 if df_hd is not None and not df_hd.empty:
-                    carreras_por_sede['heredia'] = df_hd
                     st.dataframe(df_hd, use_container_width=True, hide_index=True)
-                    st.success(f"✅ {len(df_hd)} carreras")
+                    st.success(f"✅ {len(df_hd)} carreras (Datos iniciales)")
                 else:
                     st.warning("No hay carreras en Heredia")
     
@@ -145,18 +143,20 @@ with tab1:
     st.subheader("🚀 Ejecutar Nueva Replicación")
     
     st.markdown("""
-    **¿Qué hace esto?** Vas a insertar un nuevo registro en Central y ver cómo se replica 
-    automáticamente a San Carlos y Heredia. ¡Los cambios serán visibles en las tablas de arriba!
+    **¿Qué hace esto?** Insertarás un nuevo registro en Central y verás cómo se replica 
+    automáticamente a **TODAS** las sedes regionales (San Carlos Y Heredia).
+    
+    **📋 Resultado esperado:** La nueva carrera aparecerá en las **3 tablas de arriba**.
     """)
     
-    # Selección del tipo de dato a replicar
+    # Selección del tipo de dato a replicar (solo Carrera y Profesor)
     col_tipo, col_datos = st.columns([1, 2])
     
     with col_tipo:
         tipo_replicacion = st.selectbox(
             "🎯 Tipo de dato a replicar:",
-            ["Carrera", "Profesor", "Sede"],
-            help="Todos estos datos se replican desde Central hacia las sedes regionales"
+            ["Carrera", "Profesor"],
+            help="Datos maestros que se replican desde Central hacia sedes regionales"
         )
     
     with col_datos:
@@ -164,24 +164,21 @@ with tab1:
         if tipo_replicacion == "Carrera":
             nombre_item = st.text_input("📚 Nombre de la carrera:", placeholder="Ej: Ciencia de Datos")
             sede_item = st.selectbox("🏢 Sede donde se impartirá:", ["Central", "San Carlos", "Heredia"])
+            email_item = None  # No se usa para carreras
             
         elif tipo_replicacion == "Profesor":
             nombre_item = st.text_input("👨‍🏫 Nombre del profesor:", placeholder="Ej: Dr. Juan Pérez")
             email_item = st.text_input("📧 Email:", placeholder="juan.perez@cenfotec.ac.cr")
             sede_item = st.selectbox("🏢 Sede del profesor:", ["Central", "San Carlos", "Heredia"])
-            
-        elif tipo_replicacion == "Sede":
-            nombre_item = st.text_input("🏢 Nombre de la sede:", placeholder="Ej: Cartago")
-            direccion_item = st.text_input("📍 Dirección:", placeholder="Cartago Centro, Costa Rica")
     
-    # Botones de acción (SIN st.form para evitar problemas)
+    # Botones de acción (SIN st.form)
     col_btn1, col_btn2, col_btn3 = st.columns([2, 1, 1])
     
     with col_btn1:
         ejecutar_replicacion = st.button(
             f"🚀 Ejecutar Replicación de {tipo_replicacion}", 
             type="primary",
-            help=f"Insertará el {tipo_replicacion.lower()} en Central y lo replicará a las sedes regionales"
+            help=f"Insertará el {tipo_replicacion.lower()} en Central y lo replicará según corresponda"
         )
     
     with col_btn2:
@@ -189,8 +186,7 @@ with tab1:
             st.rerun()
     
     with col_btn3:
-        limpiar_form = st.button("🧹 Limpiar", type="secondary")
-        if limpiar_form:
+        if st.button("🧹 Limpiar", type="secondary"):
             st.rerun()
     
     # Ejecutar replicación cuando se presiona el botón
@@ -203,8 +199,6 @@ with tab1:
             datos_validos = True
         elif tipo_replicacion == "Profesor" and nombre_item and email_item:
             datos_validos = True
-        elif tipo_replicacion == "Sede" and nombre_item and direccion_item:
-            datos_validos = True
         else:
             mensaje_error = f"Por favor completa todos los campos para {tipo_replicacion}"
         
@@ -216,8 +210,9 @@ with tab1:
             st.markdown("### 📝 Estado de la Operación")
             status_container = st.container()
             
-            # Simular replicación según el tipo
+            # Ejecutar replicación
             if tipo_replicacion == "Carrera":
+                # Usar la función real para carreras
                 success = execute_master_slave_replication(
                     nombre_carrera=nombre_item,
                     sede_destino=sede_item,
@@ -225,14 +220,13 @@ with tab1:
                     status_container=status_container
                 )
             else:
-                # Para profesor y sede, simular el proceso
-                success = simulate_replication_process(
-                    tipo_replicacion, 
-                    {"nombre": nombre_item, "sede": sede_item if tipo_replicacion == "Profesor" else None,
-                     "email": email_item if tipo_replicacion == "Profesor" else None,
-                     "direccion": direccion_item if tipo_replicacion == "Sede" else None},
-                    progress_bar, 
-                    status_container
+                # Para profesor, crear la lógica específica
+                success = execute_profesor_replication(
+                    nombre_profesor=nombre_item,
+                    email_profesor=email_item,
+                    sede_profesor=sede_item,
+                    progress_bar=progress_bar,
+                    status_container=status_container
                 )
             
             if success:
@@ -242,8 +236,8 @@ with tab1:
                 # Mensaje explicativo
                 st.info(
                     f"✅ **¿Qué pasó?** Se insertó '{nombre_item}' en la base de datos Central "
-                    f"y se replicó automáticamente a San Carlos y Heredia. "
-                    f"Presiona '👀 Ver Resultados' para ver los cambios en las tablas."
+                    f"y se replicó automáticamente a **TODAS** las sedes (San Carlos Y Heredia). "
+                    f"Presiona '👀 Ver Resultados' para ver la carrera en las **3 tablas de arriba**."
                 )
             else:
                 st.error(f"❌ Error en la replicación de {tipo_replicacion}")
@@ -341,7 +335,6 @@ with tab2:
                 
                 if success:
                     st.success("✅ Transferencia completada exitosamente")
-                    log_transfer_audit(estudiante_data['id_estudiante'], sede_origen, sede_destino)
                 else:
                     st.error("❌ Error en la transferencia")
 
@@ -357,33 +350,34 @@ with tab3:
         replicator = MasterSlaveReplication()
         status = replicator.get_replication_status_detailed()
         
-        # Crear gráfico de estado
-        sedes = []
-        carreras_count = []
-        estados = []
-        
-        for sede, info in status.items():
-            sedes.append(sede.title())
-            carreras_count.append(info.get('total_carreras', 0))
-            estados.append('Activo' if info.get('disponible', False) else 'Inactivo')
-        
-        if sedes:
-            fig = px.bar(
-                x=sedes, 
-                y=carreras_count,
-                title="Carreras por Sede",
-                color=estados,
-                color_discrete_map={'Activo': COLORS['success'], 'Inactivo': COLORS['danger']}
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        
-        # Estado de conexiones
+        # Mostrar estado de conexiones
         st.markdown("**Estado de Conexiones:**")
         for sede, info in status.items():
             if info.get('disponible', False):
                 st.success(f"✅ {sede.title()}: {info['total_carreras']} carreras")
             else:
                 st.error(f"❌ {sede.title()}: Desconectado")
+        
+        # Crear gráfico si hay datos
+        if status:
+            sedes = []
+            carreras_count = []
+            estados = []
+            
+            for sede, info in status.items():
+                sedes.append(sede.title())
+                carreras_count.append(info.get('total_carreras', 0))
+                estados.append('Activo' if info.get('disponible', False) else 'Inactivo')
+            
+            if sedes:
+                fig = px.bar(
+                    x=sedes, 
+                    y=carreras_count,
+                    title="Carreras por Sede",
+                    color=estados,
+                    color_discrete_map={'Activo': COLORS['success'], 'Inactivo': COLORS['danger']}
+                )
+                st.plotly_chart(fig, use_container_width=True)
     
     with col2:
         st.subheader("📋 Actividad Reciente")
@@ -403,20 +397,19 @@ with tab3:
                     st.dataframe(df_activity, use_container_width=True, hide_index=True)
                     
                     # Pequeño gráfico de estados
-                    if len(df_activity) > 0:
-                        status_counts = df_activity['estado_replicacion'].value_counts()
-                        fig = px.pie(
-                            values=status_counts.values,
-                            names=status_counts.index,
-                            title="Estados Recientes",
-                            color_discrete_map={
-                                'procesado': '#28a745',
-                                'error': '#dc3545',
-                                'pendiente': '#ffc107'
-                            }
-                        )
-                        fig.update_layout(height=300)
-                        st.plotly_chart(fig, use_container_width=True)
+                    status_counts = df_activity['estado_replicacion'].value_counts()
+                    fig = px.pie(
+                        values=status_counts.values,
+                        names=status_counts.index,
+                        title="Estados Recientes",
+                        color_discrete_map={
+                            'procesado': '#28a745',
+                            'error': '#dc3545',
+                            'pendiente': '#ffc107'
+                        }
+                    )
+                    fig.update_layout(height=300)
+                    st.plotly_chart(fig, use_container_width=True)
                 else:
                     st.info("No hay actividad reciente")
 
@@ -426,8 +419,10 @@ col1, col2 = st.columns(2)
 
 with col1:
     st.markdown("""
-    **📚 Datos Replicados:** Carreras, Profesores, Sedes  
-    **📊 Datos Fragmentados:** Estudiantes, Matrículas, Pagos
+    **📚 Datos Replicados:** Carreras, Profesores (Master-Slave completo)  
+    **📊 Datos Fragmentados:** Estudiantes, Matrículas, Pagos (por sede)
+    
+    **💡 Después de replicar:** Todas las sedes tendrán todas las carreras
     """)
 
 with col2:
@@ -435,28 +430,93 @@ with col2:
         time.sleep(30)
         st.rerun()
 
-# Función auxiliar para simular replicación de otros tipos de datos
-def simulate_replication_process(tipo, datos, progress_bar, status_container):
+# ========================================
+# FUNCIÓN PARA REPLICACIÓN DE PROFESORES
+# ========================================
+
+def execute_profesor_replication(nombre_profesor, email_profesor, sede_profesor, progress_bar, status_container):
     """
-    Simula el proceso de replicación para profesores y sedes
+    Ejecuta replicación real de profesores
     """
     try:
-        steps = ["Verificando permisos", f"Insertando {tipo.lower()} en Central", 
-                "Replicando a San Carlos", "Replicando a Heredia", 
-                "Verificando consistencia", "Registrando auditoría"]
+        # Mapear nombre de sede a ID
+        sede_map = {"Central": 1, "San Carlos": 2, "Heredia": 3}
+        id_sede = sede_map.get(sede_profesor, 1)
+        
+        steps = [
+            "🔍 Verificando permisos de replicación",
+            "🔧 Insertando profesor en Central (Master)",
+            "🔄 Replicando a San Carlos",
+            "🔄 Replicando a Heredia", 
+            "✅ Verificando consistencia",
+            "📊 Registrando en replication_log"
+        ]
         
         for i, step in enumerate(steps):
             with status_container:
-                st.info(f"🔄 {step}...")
+                st.info(step)
             progress_bar.progress((i + 1) / len(steps))
-            time.sleep(0.8)
+            
+            if i == 1:  # Insertar en Central
+                with get_db_connection('central') as db:
+                    if db:
+                        query = "INSERT INTO profesor (nombre, email, id_sede) VALUES (%s, %s, %s)"
+                        result = db.execute_update(query, (nombre_profesor, email_profesor, id_sede))
+                        if not result or result <= 0:
+                            raise Exception("Error al insertar profesor en Central")
+            
+            elif i == 2:  # Replicar a San Carlos
+                with get_db_connection('sancarlos') as db:
+                    if db:
+                        # REPLICACIÓN COMPLETA: Todos los profesores van a todas las sedes
+                        check_query = "SELECT COUNT(*) as count FROM profesor WHERE email = %s"
+                        result = db.execute_query(check_query, (email_profesor,))
+                        
+                        if result and result[0]['count'] == 0:
+                            query = "INSERT INTO profesor (nombre, email, id_sede) VALUES (%s, %s, %s)"
+                            db.execute_update(query, (nombre_profesor, email_profesor, id_sede))
+            
+            elif i == 3:  # Replicar a Heredia
+                with get_db_connection('heredia') as db:
+                    if db:
+                        # REPLICACIÓN COMPLETA: Todos los profesores van a todas las sedes
+                        check_query = "SELECT COUNT(*) as count FROM profesor WHERE email = %s"
+                        result = db.execute_query(check_query, (email_profesor,))
+                        
+                        if result and result[0]['count'] == 0:
+                            query = "INSERT INTO profesor (nombre, email, id_sede) VALUES (%s, %s, %s)"
+                            db.execute_update(query, (nombre_profesor, email_profesor, id_sede))
+            
+            elif i == 5:  # Registrar en log
+                with get_db_connection('central') as db:
+                    if db:
+                        log_data = {
+                            'nombre_profesor': nombre_profesor,
+                            'email_profesor': email_profesor,
+                            'sede_profesor': sede_profesor,
+                            'timestamp': datetime.now().isoformat()
+                        }
+                        
+                        query = """
+                        INSERT INTO replication_log (
+                            tabla_afectada, operacion, registro_id, datos_nuevos, 
+                            usuario, sede_destino, estado_replicacion
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        """
+                        
+                        db.execute_update(query, (
+                            'profesor', 'INSERT', 0, json.dumps(log_data),
+                            'sistema_replicacion_profesor', 'sancarlos,heredia', 'procesado'
+                        ))
+            
+            time.sleep(0.8)  # Simular latencia
         
         with status_container:
-            st.success(f"✅ {tipo} replicado exitosamente a todas las sedes")
+            st.success("✅ Profesor replicado exitosamente a todas las sedes")
         
         return True
         
     except Exception as e:
         with status_container:
-            st.error(f"❌ Error en replicación: {str(e)}")
+            st.error(f"❌ Error en replicación de profesor: {str(e)}")
         return False
