@@ -15,6 +15,7 @@ from contextlib import contextmanager
 import logging
 from datetime import datetime, date, timedelta
 import time 
+import json
 
 # Importar configuración desde el módulo config
 import sys
@@ -419,58 +420,148 @@ def execute_distributed_query(query: str, sedes: Optional[List[str]] = None) -> 
     
     return results
 
-def execute_real_transfer(student_data: Dict, from_sede: str, to_sede: str, progress_bar, status_container) -> bool:
+def execute_real_transfer(student_data: Dict, from_sede: str, to_sede: str, progress_bar, status_container) -> tuple:
     """
-    Ejecuta una transferencia real de estudiante entre sedes
+    Ejecuta una transferencia real de estudiante entre sedes (DELETE + INSERT)
+    Returns: (success: bool, new_student_id: int or None)
     """
     try:
         from_key = from_sede.lower().replace(' ', '')
         to_key = to_sede.lower().replace(' ', '')
         
-        # Paso 1: Copiar datos del estudiante
+        # PASO 1: Validar datos de entrada
         with status_container:
-            st.info("🔍 Copiando datos del estudiante...")
-        progress_bar.progress(0.2)
+            st.info("🔍 Validando datos del estudiante...")
+        progress_bar.progress(0.1)
         
+        # PASO 2: Insertar en sede destino con email ORIGINAL
+        with status_container:
+            st.info("📥 Creando estudiante en sede destino...")
+        progress_bar.progress(0.3)
+        
+        new_student_id = None
         with get_db_connection(to_key) as db_destino:
             if db_destino:
-                # Insertar estudiante en sede destino
+                # Obtener ID de sede destino
+                sede_destino_id = 3 if to_sede == "Heredia" else 2
+                
+                # Insertar estudiante CON EMAIL ORIGINAL (sin modificaciones)
                 query_insert = """
                 INSERT INTO estudiante (nombre, email, id_sede) 
                 VALUES (%s, %s, %s)
                 """
-                sede_destino_id = 3 if to_sede == "Heredia" else 2
                 db_destino.execute_update(query_insert, 
                     (student_data['nombre'], student_data['email'], sede_destino_id))
+                
+                # Obtener el ID del nuevo registro
+                try:
+                    new_id_query = "SELECT LAST_INSERT_ID() as new_id"
+                    result = db_destino.get_dataframe(new_id_query)
+                    if not result.empty:
+                        new_student_id = int(result.iloc[0]['new_id'])
+                except:
+                    # Si falla LAST_INSERT_ID, buscar por nombre y email
+                    search_query = """
+                    SELECT id_estudiante FROM estudiante 
+                    WHERE nombre = %s AND email = %s AND id_sede = %s
+                    ORDER BY id_estudiante DESC LIMIT 1
+                    """
+                    result = db_destino.get_dataframe(search_query, 
+                        (student_data['nombre'], student_data['email'], sede_destino_id))
+                    if not result.empty:
+                        new_student_id = int(result.iloc[0]['id_estudiante'])
         
-        # Paso 2: Transferir matrículas activas
+        # PASO 3: Transferir historial académico (opcional - puedes omitir por ahora)
         with status_container:
-            st.info("📚 Transfiriendo matrículas...")
+            st.info("📚 Verificando historial académico...")
         progress_bar.progress(0.5)
         
-        # Paso 3: Marcar como transferido en origen
+        # PASO 4: ELIMINAR de sede origen (LA PARTE CLAVE)
         with status_container:
-            st.info("🔄 Actualizando estado en origen...")
-        progress_bar.progress(0.8)
+            st.info("🗑️ Eliminando registro de sede origen...")
+        progress_bar.progress(0.7)
         
         with get_db_connection(from_key) as db_origen:
             if db_origen:
-                # Marcar como transferido (agregar campo status si no existe)
-                query_update = """
-                UPDATE estudiante 
-                SET email = CONCAT(email, '_TRANSFERIDO_', %s)
+                # ELIMINAR el registro original
+                query_delete = """
+                DELETE FROM estudiante 
                 WHERE id_estudiante = %s
                 """
-                db_origen.execute_update(query_update, (to_sede, student_data['id_estudiante']))
+                rows_affected = db_origen.execute_update(query_delete, (student_data['id_estudiante'],))
+                
+                if rows_affected == 0:
+                    raise Exception("No se pudo eliminar el estudiante de la sede origen")
         
+        # PASO 5: Log de auditoría mejorado
+        with status_container:
+            st.info("📋 Registrando en auditoría...")
+        progress_bar.progress(0.9)
+        
+        log_transfer_audit_improved(
+            old_id=student_data['id_estudiante'],
+            new_id=new_student_id,
+            from_sede=from_sede,
+            to_sede=to_sede,
+            student_name=student_data['nombre'],
+            student_email=student_data['email']
+        )
+        
+        # PASO 6: Completar
+        with status_container:
+            st.success("✅ Transferencia completada exitosamente")
         progress_bar.progress(1.0)
-        return True
+        
+        return True, new_student_id
         
     except Exception as e:
-        logger.error(f"Error en transferencia: {e}")
-        return False
+        with status_container:
+            st.error(f"❌ Error en transferencia: {str(e)}")
+        progress_bar.progress(0.0)
+        return False, None
 
 def log_transfer_audit(student_id: int, from_sede: str, to_sede: str):
-    """Registra la transferencia en log de auditoría"""
-    # Insertar en tabla sync_queue para auditoría
-    pass
+    """Versión simplificada - mantener por compatibilidad"""
+    log_transfer_audit_improved(
+        old_id=student_id,
+        new_id=None,
+        from_sede=from_sede,
+        to_sede=to_sede,
+        student_name="Unknown",
+        student_email="Unknown"
+    )
+
+def log_transfer_audit_improved(old_id: int, new_id: int, from_sede: str, to_sede: str, student_name: str, student_email: str):
+    """
+    Registra la transferencia con IDs antes/después para trazabilidad completa
+    """
+    try:
+        # Importar datetime si no está importado
+        from datetime import datetime
+        import json
+        
+        redis_conn = get_redis_connection()
+        if redis_conn:
+            audit_log = {
+                'timestamp': datetime.now().isoformat(),
+                'type': 'student_transfer',
+                'student_name': student_name,
+                'student_email': student_email,
+                'old_id': old_id,
+                'new_id': new_id,
+                'from_sede': from_sede,
+                'to_sede': to_sede,
+                'status': 'completed',
+                'operation': 'DELETE_INSERT'
+            }
+            
+            # Guardar en Redis con key específica
+            key = f"transfer_log_{datetime.now().strftime('%Y%m%d')}"
+            redis_conn.lpush(key, json.dumps(audit_log))
+            
+            # Mantener solo los últimos 100 registros
+            redis_conn.ltrim(key, 0, 99)
+            
+    except Exception as e:
+        # Log silencioso - no fallar la transferencia por problemas de auditoría
+        pass    

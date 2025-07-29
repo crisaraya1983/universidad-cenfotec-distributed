@@ -463,6 +463,52 @@ with tab1:
 
 with tab2:
     st.header("🔄 Sincronización Bidireccional")
+
+    st.markdown("### 📊 Estado Actual de Estudiantes por Sede")
+
+    # Crear tabs para mostrar datos de cada sede
+    tab_sc, tab_hd = st.tabs(["🏢 San Carlos", "🏫 Heredia"])
+
+    def get_students_by_sede(sede_key):
+        """Obtiene estudiantes de una sede específica"""
+        with get_db_connection(sede_key) as db:
+            if db:
+                query = """
+                SELECT e.id_estudiante, nombre, email, 
+                    COUNT(m.id_matricula) as materias_activas,
+                    COALESCE(AVG(n.nota), 0) as promedio
+                FROM estudiante e
+                LEFT JOIN matricula m ON e.id_estudiante = m.id_estudiante
+                LEFT JOIN nota n ON m.id_matricula = n.id_matricula
+                GROUP BY e.id_estudiante, e.nombre, e.email
+                ORDER BY e.nombre
+                """
+                return db.get_dataframe(query)
+        return pd.DataFrame()
+
+    with tab_sc:
+        st.markdown("**👥 Estudiantes en San Carlos**")
+        estudiantes_sc = get_students_by_sede('sancarlos')
+        if not estudiantes_sc.empty:
+            st.dataframe(estudiantes_sc, use_container_width=True, hide_index=True)
+            st.info(f"📊 Total estudiantes: {len(estudiantes_sc)}")
+        else:
+            st.info("No hay estudiantes en San Carlos")
+
+    with tab_hd:
+        st.markdown("**👥 Estudiantes en Heredia**")
+        estudiantes_hd = get_students_by_sede('heredia')
+        if not estudiantes_hd.empty:
+            st.dataframe(estudiantes_hd, use_container_width=True, hide_index=True)
+            st.info(f"📊 Total estudiantes: {len(estudiantes_hd)}")
+        else:
+            st.info("No hay estudiantes en Heredia")
+
+    # Botón para refrescar datos
+    if st.button("🔄 Actualizar Datos", key="refresh_students"):
+        st.rerun()
+
+    st.divider()
     
     st.markdown("""
     ### 👥 Transferencia de Estudiantes
@@ -545,13 +591,75 @@ with tab2:
                 st.markdown("### 📝 Estado de la Transferencia")
                 status_container = st.container()
                 
-                success = execute_real_transfer(
+                success, new_student_id = execute_real_transfer(
                     estudiante_data, sede_origen, sede_destino, 
                     progress_bar, status_container
                 )
                 
                 if success:
-                    st.success("✅ Transferencia completada exitosamente")
+                    st.balloons()
+                    st.success("✅ Transferencia completada: Estudiante movido exitosamente")
+                    
+                    # NUEVA SECCIÓN: Verificación de integridad
+                    st.markdown("### 🔍 Verificación de Integridad")
+                    
+                    col1, col2 = st.columns(2)
+                    
+                    # Obtener las claves de conexión
+                    from_key = sede_origen.lower().replace(' ', '')
+                    to_key = sede_destino.lower().replace(' ', '')
+                    
+                    with col1:
+                        st.markdown(f"**📍 {sede_origen} (Origen)**")
+                        # Verificar que YA NO esté en origen
+                        with get_db_connection(from_key) as db:
+                            if db:
+                                check_query = "SELECT COUNT(*) as count FROM estudiante WHERE nombre = %s"
+                                result = db.get_dataframe(check_query, (estudiante_data['nombre'],))
+                                count = result.iloc[0]['count'] if not result.empty else 0
+                                
+                                if count == 0:
+                                    st.success("✅ Estudiante eliminado correctamente")
+                                else:
+                                    st.error(f"❌ ERROR: Estudiante aún existe ({count} registros)")
+                    
+                    with col2:
+                        st.markdown(f"**🎯 {sede_destino} (Destino)**")
+                        # Verificar que SÍ esté en destino
+                        with get_db_connection(to_key) as db:
+                            if db:
+                                check_query = "SELECT COUNT(*) as count FROM estudiante WHERE nombre = %s"
+                                result = db.get_dataframe(check_query, (estudiante_data['nombre'],))
+                                count = result.iloc[0]['count'] if not result.empty else 0
+                                
+                                if count == 1:
+                                    st.success("✅ Estudiante creado correctamente")
+                                elif count > 1:
+                                    st.warning(f"⚠️ ADVERTENCIA: Múltiples registros ({count})")
+                                else:
+                                    st.error("❌ ERROR: Estudiante no encontrado")
+                    
+                    # Mostrar detalles de la transferencia
+                    if new_student_id:
+                        st.markdown("### 📊 Detalles de la Transferencia")
+                        
+                        audit_details = {
+                            'ID Original': estudiante_data['id_estudiante'],
+                            'ID Nuevo': new_student_id,
+                            'Estudiante': estudiante_data['nombre'],
+                            'Email': estudiante_data['email'],  # Email SIN modificar
+                            'Desde': sede_origen,
+                            'Hacia': sede_destino,
+                            'Timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                            'Operación': 'DELETE (origen) + INSERT (destino)',
+                            'Estado': '✅ Completada'
+                        }
+                        st.json(audit_details)
+                    
+                    # Botón para actualizar vista
+                    if st.button("🔄 Actualizar Vista de Estudiantes", key="refresh_after_transfer"):
+                        st.rerun()
+
                 else:
                     st.error("❌ Error en la transferencia")
 
