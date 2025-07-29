@@ -160,21 +160,21 @@ with tab2:
     
     # Crear diagrama E-R usando Graphviz
     er_diagram = graphviz.Digraph(comment='Diagrama E-R Universidad Cenfotec')
-    er_diagram.attr(rankdir='TB', size='14,10', dpi='150')
+    er_diagram.attr(rankdir='TB', size='12,8', dpi='70')
     er_diagram.attr('node', shape='box', style='rounded,filled', fontname='Arial', fontsize='10')
     
     # Entidades principales con colores diferenciados
     er_diagram.node('Sede', 'SEDE\n📍\nid_sede (PK)\nnombre\ndireccion', fillcolor='lightblue')
-    er_diagram.node('Estudiante', 'ESTUDIANTE\n👨‍🎓\nid_estudiante (PK)\nnombre\nemail\nid_sede (FK)', fillcolor='lightgreen')
+    er_diagram.node('Estudiante', 'ESTUDIANTE\n👨‍🎓\nid_estudiante (PK)\nnombre\nemail\nid_sede (FK)', fillcolor='honeydew', style='filled')
     er_diagram.node('Profesor', 'PROFESOR\n👨‍🏫\nid_profesor (PK)\nnombre\nemail\nid_sede (FK)', fillcolor='lightcoral')
     er_diagram.node('Carrera', 'CARRERA\n🎓\nid_carrera (PK)\nnombre\nid_sede (FK)', fillcolor='lightyellow')
     er_diagram.node('Curso', 'CURSO\n📚\nid_curso (PK)\nnombre\nid_carrera (FK)', fillcolor='lightpink')
     er_diagram.node('Matricula', 'MATRICULA\n📝\nid_matricula (PK)\nid_estudiante (FK)\nid_curso (FK)', fillcolor='lightgray')
     er_diagram.node('Nota', 'NOTA\n📊\nid_nota (PK)\nid_matricula (FK)\nnota', fillcolor='lightsteelblue')
     er_diagram.node('Asistencia', 'ASISTENCIA\n✅\nid_asistencia (PK)\nid_matricula (FK)\nfecha\npresente', fillcolor='lightsteelblue')
-    er_diagram.node('Pago', 'PAGO\n💰\nid_pago (PK)\nid_estudiante (FK)\nmonto\nfecha', fillcolor='lightgreen')
+    er_diagram.node('Pago', 'PAGO\n💰\nid_pago (PK)\nid_estudiante (FK)\nmonto\nfecha', fillcolor='honeydew', style='filled')
     er_diagram.node('Planilla', 'PLANILLA\n💼\nid_planilla (PK)\nid_profesor (FK)\nsalario\nmes', fillcolor='lightcoral')
-    er_diagram.node('Pagare', 'PAGARE\n📄\nid_pagare (PK)\nid_estudiante (FK)\nmonto\nvencimiento', fillcolor='lightgreen')
+    er_diagram.node('Pagare', 'PAGARE\n📄\nid_pagare (PK)\nid_estudiante (FK)\nmonto\nvencimiento', fillcolor='honeydew', style='filled')
     
     # Relaciones con etiquetas más claras
     er_diagram.edge('Estudiante', 'Sede', label='pertenece_a', color='blue')
@@ -236,7 +236,8 @@ with tab3:
     st.markdown("#### 🔗 Diagrama Relacional - Sede Central")
     
     central_diagram = graphviz.Digraph(comment='BD Central')
-    central_diagram.attr(rankdir='LR', size='12,8', dpi='150')
+    central_diagram.attr(rankdir='LR', size='10,6', dpi='70')
+    central_diagram.attr(bgcolor='white')
     central_diagram.attr('node', shape='record', style='filled', fontname='Arial', fontsize='10')
     
     # Tablas maestras (azul) - CORREGIDAS sin nodos undefined
@@ -245,8 +246,8 @@ with tab3:
     central_diagram.node('profesor_c', '{PROFESOR|id_profesor (PK)\\lnombre\\lemail\\lid_sede (FK)\\l}', fillcolor='lightblue')
     
     # Tablas administrativas (verde)
-    central_diagram.node('planilla_c', '{PLANILLA|id_planilla (PK)\\lid_profesor (FK)\\lsalario\\lmes\\l}', fillcolor='lightgreen')
-    central_diagram.node('pagare_c', '{PAGARE|id_pagare (PK)\\lid_estudiante (FK)\\lmonto\\lvencimiento\\l}', fillcolor='lightgreen')
+    central_diagram.node('planilla_c', '{PLANILLA|id_planilla (PK)\\lid_profesor (FK)\\lsalario\\lmes\\l}', fillcolor='honeydew')
+    central_diagram.node('pagare_c', '{PAGARE|id_pagare (PK)\\lid_estudiante (FK)\\lmonto\\lvencimiento\\l}', fillcolor='honeydew')
     
     # Relaciones
     central_diagram.edge('carrera_c', 'sede_c', label='FK: id_sede', color='blue')
@@ -295,7 +296,7 @@ with tab4:
         st.markdown("#### 🔗 Diagrama Relacional - San Carlos")
         
         sc_diagram = graphviz.Digraph(comment='BD San Carlos')
-        sc_diagram.attr(rankdir='TB', size='14,10', dpi='150')
+        sc_diagram.attr(rankdir='LR', size='12,6', dpi='70')
         sc_diagram.attr('node', shape='record', style='filled', fontname='Arial', fontsize='9')
         
         # Tablas replicadas (amarillo)
@@ -355,7 +356,7 @@ with tab4:
         st.markdown("#### 🔗 Diagrama Relacional - Heredia")
         
         hd_diagram = graphviz.Digraph(comment='BD Heredia')
-        hd_diagram.attr(rankdir='TB', size='14,10', dpi='150')
+        hd_diagram.attr(rankdir='LR', size='12,6', dpi='70')
         hd_diagram.attr('node', shape='record', style='filled', fontname='Arial', fontsize='9')
         
         # Tablas replicadas (amarillo)
@@ -394,7 +395,7 @@ with tab5:
     
     # Diagrama de replicación
     replication_diagram = graphviz.Digraph(comment='Replicación Master-Slave')
-    replication_diagram.attr(rankdir='TB', size='14,10', dpi='150')
+    replication_diagram.attr(rankdir='TB', size='10,8', dpi='70', center='true')
     replication_diagram.attr('node', fontname='Arial', fontsize='10')
     
     # Nodo Master (Central)
@@ -426,7 +427,7 @@ with tab5:
     • estudiantes
     • matrículas
     • notas
-    ''', shape='box', style='filled', fillcolor='lightgreen')
+    ''', shape='box', style='filled', fillcolor='honeydew')
     
     replication_diagram.node('slave2', '''
     SLAVE 2
@@ -506,7 +507,7 @@ with tab6:
     
     # Diagrama de Cache y Load Balancer
     cache_diagram = graphviz.Digraph(comment='Cache y Load Balancer')
-    cache_diagram.attr(rankdir='LR', size='16,12', dpi='150')
+    cache_diagram.attr(rankdir='TB', size='12,8', dpi='70')
     cache_diagram.attr('node', fontname='Arial', fontsize='9')
     
     # Cliente/Usuario
@@ -574,7 +575,7 @@ with tab6:
     • Matrículas locales
     • Calificaciones
     • Pagos estudiantiles
-    ''', shape='box', style='filled', fillcolor='lightgreen')
+    ''', shape='box', style='filled', fillcolor='honeydew')
     
     cache_diagram.node('api_hd', '''
     🏔️ API PROXY HEREDIA
@@ -589,7 +590,7 @@ with tab6:
     
     # Bases de datos
     cache_diagram.node('db_central', '🏛️ MySQL Central\n3306', shape='cylinder', style='filled', fillcolor='lightblue')
-    cache_diagram.node('db_sc', '🌄 MySQL San Carlos\n3307', shape='cylinder', style='filled', fillcolor='lightgreen')
+    cache_diagram.node('db_sc', '🌄 MySQL San Carlos\n3307', shape='cylinder', style='filled', fillcolor='honeydew')
     cache_diagram.node('db_hd', '🏔️ MySQL Heredia\n3308', shape='cylinder', style='filled', fillcolor='lightpink')
     
     # Flujo de requests
