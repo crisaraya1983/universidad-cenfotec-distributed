@@ -1,5 +1,5 @@
 """
-Página de demostración de Replicación - Versión Completa
+Página de demostración de Replicación 
 Implementa replicación funcional para Carreras y Profesores con visualización dinámica
 """
 
@@ -34,7 +34,7 @@ st.markdown("""
 **Replicación Master-Slave Completa**: Los datos maestros (carreras, profesores) se mantienen 
 sincronizados desde la sede Central hacia **TODAS** las sedes regionales.
 
-**¿Cómo funciona?** 
+**¿Cómo funciona la replicación?** 
 1. 📝 Se **inserta** un nuevo registro en la base de datos Central (Master)
 2. 🔄 El sistema **propaga automáticamente** ese registro a **TODAS** las sedes (San Carlos y Heredia)
 3. ✅ Se **verifica** que todas las sedes tengan la misma información maestral
@@ -467,24 +467,37 @@ with tab2:
     st.markdown("### 📊 Estado Actual de Estudiantes por Sede")
 
     # Crear tabs para mostrar datos de cada sede
-    tab_sc, tab_hd = st.tabs(["🏢 San Carlos", "🏫 Heredia"])
+    tab_central, tab_sc, tab_hd = st.tabs(["🏛️ Central", "🏢 San Carlos", "🏫 Heredia"])
 
     def get_students_by_sede(sede_key):
-        """Obtiene estudiantes de una sede específica"""
+        """Obtiene estudiantes ACTIVOS de una sede específica"""
         with get_db_connection(sede_key) as db:
             if db:
+                # Mostrar solo estudiantes activos en esta sede
                 query = """
-                SELECT e.id_estudiante, nombre, email, 
+                SELECT e.id_estudiante, e.nombre, e.email, 
+                    COALESCE(e.estado, 'activo') as estado,
                     COUNT(m.id_matricula) as materias_activas,
                     COALESCE(AVG(n.nota), 0) as promedio
                 FROM estudiante e
                 LEFT JOIN matricula m ON e.id_estudiante = m.id_estudiante
                 LEFT JOIN nota n ON m.id_matricula = n.id_matricula
-                GROUP BY e.id_estudiante, e.nombre, e.email
+                WHERE COALESCE(e.estado, 'activo') = 'activo' 
+                OR e.estado IS NULL
+                GROUP BY e.id_estudiante, e.nombre, e.email, e.estado
                 ORDER BY e.nombre
                 """
                 return db.get_dataframe(query)
         return pd.DataFrame()
+    
+    with tab_central:
+        st.markdown("**👥 Estudiantes en Central**")
+        estudiantes_central = get_students_by_sede('central')
+        if not estudiantes_central.empty:
+            st.dataframe(estudiantes_central, use_container_width=True, hide_index=True)
+            st.info(f"📊 Total estudiantes: {len(estudiantes_central)}")
+        else:
+            st.info("No hay estudiantes en Central")
 
     with tab_sc:
         st.markdown("**👥 Estudiantes en San Carlos**")
@@ -521,7 +534,7 @@ with tab2:
 
     with col1:
         st.markdown("### 📤 Sede Origen")
-        sede_origen = st.selectbox("Sede origen:", ["San Carlos", "Heredia"], key="transfer_origen")
+        sede_origen = st.selectbox("Sede origen:", ["Central", "San Carlos", "Heredia"], key="transfer_origen")
         
         # Obtener estudiantes reales
         estudiantes_reales = []
@@ -536,10 +549,10 @@ with tab2:
                 FROM estudiante e
                 LEFT JOIN matricula m ON e.id_estudiante = m.id_estudiante
                 LEFT JOIN nota n ON m.id_matricula = n.id_matricula
-                WHERE e.email NOT LIKE '%TRANSFERIDO%'
+                WHERE (e.email NOT LIKE '%TRANSFERIDO%' OR e.email IS NULL)
+                AND (COALESCE(e.estado, 'activo') = 'activo' OR e.estado IS NULL)
                 GROUP BY e.id_estudiante, e.nombre, e.email
                 ORDER BY e.nombre
-                LIMIT 10
                 """
                 result = db.execute_query(query)
                 if result:
@@ -573,7 +586,7 @@ with tab2:
 
     with col2:
         st.markdown("### 📥 Sede Destino")
-        sedes_destino = ["San Carlos", "Heredia"]
+        sedes_destino = ["Central", "San Carlos", "Heredia"]
         if sede_origen in sedes_destino:
             sedes_destino.remove(sede_origen)
         
@@ -600,8 +613,7 @@ with tab2:
                     st.balloons()
                     st.success("✅ Transferencia completada: Estudiante movido exitosamente")
                     
-                    # NUEVA SECCIÓN: Verificación de integridad
-                    st.markdown("### 🔍 Verificación de Integridad")
+                    st.markdown("### 🔍 Verificación de Transferencia")
                     
                     col1, col2 = st.columns(2)
                     
@@ -611,37 +623,51 @@ with tab2:
                     
                     with col1:
                         st.markdown(f"**📍 {sede_origen} (Origen)**")
-                        # Verificar que YA NO esté en origen
                         with get_db_connection(from_key) as db:
                             if db:
-                                check_query = "SELECT COUNT(*) as count FROM estudiante WHERE nombre = %s"
+                                check_query = """
+                                SELECT COUNT(*) as count, 
+                                    SUM(CASE WHEN estado = 'transferido' THEN 1 ELSE 0 END) as transferidos
+                                FROM estudiante 
+                                WHERE nombre = %s
+                                """
                                 result = db.get_dataframe(check_query, (estudiante_data['nombre'],))
-                                count = result.iloc[0]['count'] if not result.empty else 0
-                                
-                                if count == 0:
-                                    st.success("✅ Estudiante eliminado correctamente")
+                                if not result.empty:
+                                    total = result.iloc[0]['count']
+                                    transferidos = result.iloc[0]['transferidos'] or 0
+                                    
+                                    if transferidos > 0:
+                                        st.success(f"✅ Estudiante marcado como transferido ({transferidos}/{total})")
+                                    else:
+                                        st.warning("⚠️ Estudiante no marcado como transferido")
                                 else:
-                                    st.error(f"❌ ERROR: Estudiante aún existe ({count} registros)")
-                    
+                                    st.error("❌ Error al verificar estado")
+
                     with col2:
                         st.markdown(f"**🎯 {sede_destino} (Destino)**")
-                        # Verificar que SÍ esté en destino
                         with get_db_connection(to_key) as db:
                             if db:
-                                check_query = "SELECT COUNT(*) as count FROM estudiante WHERE nombre = %s"
+                                check_query = """
+                                SELECT COUNT(*) as count,
+                                    SUM(CASE WHEN estado = 'activo' THEN 1 ELSE 0 END) as activos
+                                FROM estudiante 
+                                WHERE nombre = %s
+                                """
                                 result = db.get_dataframe(check_query, (estudiante_data['nombre'],))
-                                count = result.iloc[0]['count'] if not result.empty else 0
-                                
-                                if count == 1:
-                                    st.success("✅ Estudiante creado correctamente")
-                                elif count > 1:
-                                    st.warning(f"⚠️ ADVERTENCIA: Múltiples registros ({count})")
+                                if not result.empty:
+                                    total = result.iloc[0]['count']
+                                    activos = result.iloc[0]['activos'] or 0
+                                    
+                                    if activos > 0:
+                                        st.success(f"✅ Estudiante activo en destino ({activos}/{total})")
+                                    else:
+                                        st.error("❌ Estudiante no encontrado en destino")
                                 else:
-                                    st.error("❌ ERROR: Estudiante no encontrado")
+                                    st.error("❌ Error al verificar estado")
                     
                     # Mostrar detalles de la transferencia
                     if new_student_id:
-                        st.markdown("### 📊 Detalles de la Transferencia")
+                        st.markdown("### 📊 Detalles de la Transferencia Lógica")
                         
                         audit_details = {
                             'ID Original': estudiante_data['id_estudiante'],
@@ -651,7 +677,8 @@ with tab2:
                             'Desde': sede_origen,
                             'Hacia': sede_destino,
                             'Timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                            'Operación': 'DELETE (origen) + INSERT (destino)',
+                            'Operación': 'UPDATE (origen) + INSERT (destino)',
+                            'Tipo': 'Transferencia Lógica',
                             'Estado': '✅ Completada'
                         }
                         st.json(audit_details)
