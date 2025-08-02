@@ -1,7 +1,7 @@
 """
-Página de demostración de Fragmentación - 
+Página de demostración de Fragmentación - CON RESULTADOS PERSISTENTES
 Esta página demuestra los conceptos de fragmentación de bases de datos distribuidas
-usando ejemplos que muestran cómo los datos están DISTRIBUIDOS entre sedes.
+manteniendo los resultados de múltiples consultas visibles simultáneamente.
 """
 
 import streamlit as st
@@ -26,10 +26,39 @@ st.set_page_config(
     layout="wide"
 )
 
+# Inicializar session_state para resultados persistentes
+if 'fragmentos_estudiantes' not in st.session_state:
+    st.session_state.fragmentos_estudiantes = {}
+
+if 'fragmentos_cursos' not in st.session_state:
+    st.session_state.fragmentos_cursos = {}
+
+if 'datos_administrativos' not in st.session_state:
+    st.session_state.datos_administrativos = {}
+
+if 'datos_academicos' not in st.session_state:
+    st.session_state.datos_academicos = {}
+
+if 'fragmentacion_derivada' not in st.session_state:
+    st.session_state.fragmentacion_derivada = {}
+
+# Función auxiliar para limpiar resultados
+def limpiar_resultados(categoria):
+    if categoria == 'estudiantes':
+        st.session_state.fragmentos_estudiantes = {}
+    elif categoria == 'cursos':
+        st.session_state.fragmentos_cursos = {}
+    elif categoria == 'administrativos':
+        st.session_state.datos_administrativos = {}
+    elif categoria == 'academicos':
+        st.session_state.datos_academicos = {}
+    elif categoria == 'derivada':
+        st.session_state.fragmentacion_derivada = {}
+
 # Título de la página
 st.title("📊 Fragmentación de Bases de Datos Distribuidas - Universidad Cenfotec")
 
-# Introducción educativa CORREGIDA
+# Introducción educativa
 st.markdown("""
 ## 🎯 **¿Qué es la Fragmentación en Bases de Datos Distribuidas?**
 
@@ -92,7 +121,6 @@ with tab1:
         ✅ **Beneficio:** Separación funcional y seguridad  
         ❗ **Consulta mixta:** Requiere datos de Central + Regional
         """)
-        
     
     # Diagrama de fragmentación
     st.markdown("### 📐 Visualización de Fragmentación")
@@ -157,15 +185,82 @@ with tab2:
     🔑 **Para obtener TODOS los estudiantes** necesitas consultar **múltiples sedes**.
     """)
     
-    # Ejemplo 1: Demostrar fragmentación
+    # Ejemplo 1: Demostrar fragmentación con resultados persistentes
     st.markdown("### 🧪 Ejemplo 1: Estudiantes Fragmentados por Sede")
     
+    # Botones para limpiar y mostrar fragmentos
+    col_clear, col_dist = st.columns([1, 2])
+    with col_clear:
+        if st.button("🗑️ Limpiar Resultados", key="clear_estudiantes"):
+            limpiar_resultados('estudiantes')
+            #st.rerun()
+    
+    with col_dist:
+        if st.button("🔄 Ejecutar Consulta Distribuida: TODOS los Estudiantes", key="dist_estudiantes"):
+            with st.spinner('Consultando TODAS las sedes para unir fragmentos...'):
+                try:
+                    estudiantes_distribuidos = []
+                    sedes_consultadas = []
+                    
+                    # Consulta para cada sede
+                    query_fragmento = """
+                        SELECT 
+                            e.nombre as estudiante,
+                            s.nombre as sede,
+                            e.id_sede,
+                            COUNT(m.id_matricula) as matriculas
+                        FROM estudiante e
+                        JOIN sede s ON e.id_sede = s.id_sede
+                        LEFT JOIN matricula m ON e.id_estudiante = m.id_estudiante
+                        GROUP BY e.id_estudiante, e.nombre, s.nombre, e.id_sede
+                        ORDER BY e.nombre;
+                    """
+                    # Central
+                    with get_db_connection('central') as db:
+                        if db:
+                            df_central = db.get_dataframe(query_fragmento)
+                            if df_central is not None and not df_central.empty:
+                                estudiantes_distribuidos.append(df_central)
+                                sedes_consultadas.append("Central")
+
+                    # San Carlos
+                    with get_db_connection('sancarlos') as db:
+                        if db:
+                            df_sc = db.get_dataframe(query_fragmento)
+                            if df_sc is not None and not df_sc.empty:
+                                estudiantes_distribuidos.append(df_sc)
+                                sedes_consultadas.append("San Carlos")
+                    
+                    # Heredia
+                    with get_db_connection('heredia') as db:
+                        if db:
+                            df_hd = db.get_dataframe(query_fragmento)
+                            if df_hd is not None and not df_hd.empty:
+                                estudiantes_distribuidos.append(df_hd)
+                                sedes_consultadas.append("Heredia")
+                    
+                    if estudiantes_distribuidos:
+                        # Unir todos los fragmentos
+                        df_todos = pd.concat(estudiantes_distribuidos, ignore_index=True)
+                        
+                        # Guardar en session_state
+                        st.session_state.fragmentos_estudiantes['distribuida'] = {
+                            'data': df_todos,
+                            'sedes': sedes_consultadas,
+                            'timestamp': datetime.now()
+                        }
+                        #st.rerun()
+                
+                except Exception as e:
+                    st.error(f"❌ Error en consulta distribuida: {str(e)}")
+    
+    # Botones para cada fragmento
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        if st.button("🔍 Ver Fragmento: Central", type="primary"):
+        if st.button("🔍 Ver Fragmento: Central", type="primary", key="frag_central"):
             with st.spinner('Consultando fragmento en Sede Central...'):
-                query_sc = """
+                query_central = """
                     SELECT 
                         e.nombre as estudiante,
                         e.email,
@@ -180,21 +275,28 @@ with tab2:
                 
                 with get_db_connection('central') as db:
                     if db:
-                        df_sc = db.get_dataframe(query_sc)
-                        if df_sc is not None and not df_sc.empty:
-                            st.success(f"✅ Fragmento Central: {len(df_sc)} estudiantes")
-                            st.dataframe(df_sc, use_container_width=True, hide_index=True)
-                            
-                            # Contar total en San Carlos
+                        df_central = db.get_dataframe(query_central)
+                        if df_central is not None and not df_central.empty:
+                            # Contar total
                             count_query = "SELECT COUNT(*) as total FROM estudiante WHERE id_sede = 1"
-                            total_sc = db.get_dataframe(count_query)
-                            if total_sc is not None:
-                                st.metric("Total Estudiantes en Sede Central", total_sc.iloc[0]['total'])
+                            total_central = db.get_dataframe(count_query)
+                            total_count = total_central.iloc[0]['total'] if total_central is not None else 0
+                            
+                            # Guardar en session_state
+                            st.session_state.fragmentos_estudiantes['central'] = {
+                                'data': df_central,
+                                'total': total_count,
+                                'timestamp': datetime.now()
+                            }
                         else:
-                            st.warning("No hay estudiantes en Sede Central")
-    
+                            st.session_state.fragmentos_estudiantes['central'] = {
+                                'data': None,
+                                'total': 0,
+                                'timestamp': datetime.now()
+                            }
+
     with col2:
-        if st.button("🔍 Ver Fragmento: San Carlos", type="primary"):
+        if st.button("🔍 Ver Fragmento: San Carlos", type="primary", key="frag_sc"):
             with st.spinner('Consultando fragmento en San Carlos...'):
                 query_sc = """
                     SELECT 
@@ -213,19 +315,26 @@ with tab2:
                     if db:
                         df_sc = db.get_dataframe(query_sc)
                         if df_sc is not None and not df_sc.empty:
-                            st.success(f"✅ Fragmento San Carlos: {len(df_sc)} estudiantes")
-                            st.dataframe(df_sc, use_container_width=True, hide_index=True)
-                            
-                            # Contar total en San Carlos
+                            # Contar total
                             count_query = "SELECT COUNT(*) as total FROM estudiante WHERE id_sede = 2"
                             total_sc = db.get_dataframe(count_query)
-                            if total_sc is not None:
-                                st.metric("Total Estudiantes en San Carlos", total_sc.iloc[0]['total'])
+                            total_count = total_sc.iloc[0]['total'] if total_sc is not None else 0
+                            
+                            # Guardar en session_state
+                            st.session_state.fragmentos_estudiantes['sancarlos'] = {
+                                'data': df_sc,
+                                'total': total_count,
+                                'timestamp': datetime.now()
+                            }
                         else:
-                            st.warning("No hay estudiantes en San Carlos")
-    
+                            st.session_state.fragmentos_estudiantes['sancarlos'] = {
+                                'data': None,
+                                'total': 0,
+                                'timestamp': datetime.now()
+                            }
+
     with col3:
-        if st.button("🔍 Ver Fragmento: Heredia", type="primary"):
+        if st.button("🔍 Ver Fragmento: Heredia", type="primary", key="frag_hd"):
             with st.spinner('Consultando fragmento en Heredia...'):
                 query_hd = """
                     SELECT 
@@ -244,121 +353,104 @@ with tab2:
                     if db:
                         df_hd = db.get_dataframe(query_hd)
                         if df_hd is not None and not df_hd.empty:
-                            st.success(f"✅ Fragmento Heredia: {len(df_hd)} estudiantes")
-                            st.dataframe(df_hd, use_container_width=True, hide_index=True)
-                            
-                            # Contar total en Heredia
+                            # Contar total
                             count_query = "SELECT COUNT(*) as total FROM estudiante WHERE id_sede = 3"
                             total_hd = db.get_dataframe(count_query)
-                            if total_hd is not None:
-                                st.metric("Total Estudiantes en Heredia", total_hd.iloc[0]['total'])
+                            total_count = total_hd.iloc[0]['total'] if total_hd is not None else 0
+                            
+                            # Guardar en session_state
+                            st.session_state.fragmentos_estudiantes['heredia'] = {
+                                'data': df_hd,
+                                'total': total_count,
+                                'timestamp': datetime.now()
+                            }
                         else:
-                            st.warning("No hay estudiantes en Heredia")
+                            st.session_state.fragmentos_estudiantes['heredia'] = {
+                                'data': None,
+                                'total': 0,
+                                'timestamp': datetime.now()
+                            }
     
-    # Ejemplo 2: Consulta distribuida (fragmentación en acción)
-    st.markdown("### 🌐 Ejemplo 2: Consulta Distribuida - Todos los Estudiantes")
-    st.markdown("""
-    **💡 Concepto:** Para obtener **TODOS** los estudiantes del sistema, necesitas consultar 
-    **todas sedes** y **unir** los resultados. Esto demuestra que los datos están **fragmentados**.
-    """)
+    # Mostrar TODOS los resultados almacenados
+    st.markdown("### 📊 Resultados de Fragmentación (Persistentes)")
     
-    if st.button("🔄 Ejecutar Consulta Distribuida: TODOS los Estudiantes"):
-        with st.spinner('Consultando TODAS las sedes para unir fragmentos...'):
-            try:
-                estudiantes_distribuidos = []
-                sedes_consultadas = []
-                
-                # Consulta para cada sede
-                query_fragmento = """
-                    SELECT 
-                        e.nombre as estudiante,
-                        s.nombre as sede,
-                        e.id_sede,
-                        COUNT(m.id_matricula) as matriculas
-                    FROM estudiante e
-                    JOIN sede s ON e.id_sede = s.id_sede
-                    LEFT JOIN matricula m ON e.id_estudiante = m.id_estudiante
-                    GROUP BY e.id_estudiante, e.nombre, s.nombre, e.id_sede
-                    ORDER BY e.nombre;
-                """
-                # Central
-                with get_db_connection('central') as db:
-                    if db:
-                        df_hd = db.get_dataframe(query_fragmento)
-                        if df_hd is not None and not df_hd.empty:
-                            estudiantes_distribuidos.append(df_hd)
-                            sedes_consultadas.append("Central")
-
-                # San Carlos
-                with get_db_connection('sancarlos') as db:
-                    if db:
-                        df_sc = db.get_dataframe(query_fragmento)
-                        if df_sc is not None and not df_sc.empty:
-                            estudiantes_distribuidos.append(df_sc)
-                            sedes_consultadas.append("San Carlos")
-                
-                # Heredia
-                with get_db_connection('heredia') as db:
-                    if db:
-                        df_hd = db.get_dataframe(query_fragmento)
-                        if df_hd is not None and not df_hd.empty:
-                            estudiantes_distribuidos.append(df_hd)
-                            sedes_consultadas.append("Heredia")
-                
-                if estudiantes_distribuidos:
-                    # Unir todos los fragmentos
-                    df_todos = pd.concat(estudiantes_distribuidos, ignore_index=True)
-                    
-                    st.success(f"✅ Consulta Distribuida Exitosa - Consultadas: {', '.join(sedes_consultadas)}")
-                    
-                    col1, col2 = st.columns(2)
+    # Mostrar consulta distribuida si existe
+    if 'distribuida' in st.session_state.fragmentos_estudiantes:
+        dist_data = st.session_state.fragmentos_estudiantes['distribuida']
+        st.markdown("#### 🌐 Consulta Distribuida - Todos los Estudiantes Unidos")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.success(f"✅ Consulta Distribuida Exitosa - Consultadas: {', '.join(dist_data['sedes'])}")
+            st.dataframe(dist_data['data'].head(15), use_container_width=True, hide_index=True)
+        
+        with col2:
+            # Análisis de fragmentación
+            resumen = dist_data['data'].groupby('sede').agg({
+                'estudiante': 'count',
+                'matriculas': 'sum'
+            }).reset_index()
+            resumen.columns = ['sede', 'estudiantes', 'total_matriculas']
+            
+            st.dataframe(resumen, use_container_width=True, hide_index=True)
+            
+            # Gráfico de distribución
+            fig = px.pie(resumen, values='estudiantes', names='sede',
+                       title="Distribución de Estudiantes por Fragmento")
+            st.plotly_chart(fig, use_container_width=True)
+        
+        # Estadísticas globales
+        st.markdown("#### 🎯 Estadísticas del Sistema Distribuido")
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Total Estudiantes", len(dist_data['data']))
+        with col2:
+            st.metric("Sedes Consultadas", len(dist_data['sedes']))
+        with col3:
+            st.metric("Total Matrículas", dist_data['data']['matriculas'].sum())
+        with col4:
+            promedio_mat = dist_data['data']['matriculas'].mean()
+            st.metric("Matrículas por Estudiante", f"{promedio_mat:.1f}")
+    
+    # Mostrar fragmentos individuales
+    fragmentos_orden = [
+        ('central', 'Central', '🏛️'),
+        ('sancarlos', 'San Carlos', '🏢'), 
+        ('heredia', 'Heredia', '🏫')
+    ]
+    
+    for key, nombre, icono in fragmentos_orden:
+        if key in st.session_state.fragmentos_estudiantes:
+            frag_data = st.session_state.fragmentos_estudiantes[key]
+            
+            with st.expander(f"{icono} Fragmento {nombre} - Consultado a las {frag_data['timestamp'].strftime('%H:%M:%S')}", expanded=True):
+                if frag_data['data'] is not None and not frag_data['data'].empty:
+                    col1, col2 = st.columns([3, 1])
                     with col1:
-                        st.markdown("#### 📊 Datos Unificados")
-                        st.dataframe(df_todos.head(15), use_container_width=True, hide_index=True)
-                    
+                        st.dataframe(frag_data['data'], use_container_width=True, hide_index=True)
                     with col2:
-                        st.markdown("#### 📈 Análisis de Fragmentación")
-                        resumen = df_todos.groupby('sede').agg({
-                            'estudiante': 'count',
-                            'matriculas': 'sum'
-                        }).reset_index()
-                        resumen.columns = ['sede', 'estudiantes', 'total_matriculas']
-                        
-                        st.dataframe(resumen, use_container_width=True, hide_index=True)
-                        
-                        # Gráfico de distribución
-                        fig = px.pie(resumen, values='estudiantes', names='sede',
-                                   title="Distribución de Estudiantes por Fragmento")
-                        st.plotly_chart(fig, use_container_width=True)
-                    
-                    # Estadísticas globales
-                    st.markdown("#### 🎯 Estadísticas del Sistema Distribuido")
-                    col1, col2, col3, col4 = st.columns(4)
-                    
-                    with col1:
-                        st.metric("Total Estudiantes", len(df_todos))
-                    with col2:
-                        st.metric("Sedes Consultadas", len(sedes_consultadas))
-                    with col3:
-                        st.metric("Total Matrículas", df_todos['matriculas'].sum())
-                    with col4:
-                        promedio_mat = df_todos['matriculas'].mean()
-                        st.metric("Matrículas por Estudiante", f"{promedio_mat:.1f}")
-                
-            except Exception as e:
-                st.error(f"❌ Error en consulta distribuida: {str(e)}")
+                        st.metric(f"Total en {nombre}", frag_data['total'])
+                        st.metric("Fragmentos Mostrados", len(frag_data['data']))
+                else:
+                    st.warning(f"No hay estudiantes en {nombre}")
     
-    # Ejemplo 3: Fragmentación por curso/materia
+    # Ejemplo 3: Fragmentación por curso/materia CON PERSISTENCIA
     st.markdown("### 📚 Ejemplo 3: Cursos y Matrículas por Sede")
     st.markdown("""
     **💡 Concepto:** Los cursos y matrículas también siguen la fragmentación por sede.
     """)
     
+    # Botón para limpiar resultados de cursos
+    if st.button("🗑️ Limpiar Resultados de Cursos", key="clear_cursos"):
+        limpiar_resultados('cursos')
+        #st.rerun()
+    
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        if st.button("📖 Cursos en Sede Central"):
-            query_cursos_sc = """
+        if st.button("📖 Cursos en Sede Central", key="cursos_central"):
+            query_cursos_central = """
                 SELECT 
                     c.nombre as curso,
                     car.nombre as carrera,
@@ -376,12 +468,14 @@ with tab2:
             
             with get_db_connection('central') as db:
                 if db:
-                    df_cursos_sc = db.get_dataframe(query_cursos_sc)
-                    if df_cursos_sc is not None and not df_cursos_sc.empty:
-                        st.dataframe(df_cursos_sc, use_container_width=True, hide_index=True)
+                    df_cursos_central = db.get_dataframe(query_cursos_central)
+                    st.session_state.fragmentos_cursos['central'] = {
+                        'data': df_cursos_central,
+                        'timestamp': datetime.now()
+                    }
 
     with col2:
-        if st.button("📖 Cursos en San Carlos"):
+        if st.button("📖 Cursos en San Carlos", key="cursos_sc"):
             query_cursos_sc = """
                 SELECT 
                     c.nombre as curso,
@@ -401,12 +495,13 @@ with tab2:
             with get_db_connection('sancarlos') as db:
                 if db:
                     df_cursos_sc = db.get_dataframe(query_cursos_sc)
-                    if df_cursos_sc is not None and not df_cursos_sc.empty:
-                        st.dataframe(df_cursos_sc, use_container_width=True, hide_index=True)
-    
+                    st.session_state.fragmentos_cursos['sancarlos'] = {
+                        'data': df_cursos_sc,
+                        'timestamp': datetime.now()
+                    }
     
     with col3:
-        if st.button("📖 Cursos en Heredia"):
+        if st.button("📖 Cursos en Heredia", key="cursos_hd"):
             query_cursos_hd = """
                 SELECT 
                     c.nombre as curso,
@@ -426,8 +521,24 @@ with tab2:
             with get_db_connection('heredia') as db:
                 if db:
                     df_cursos_hd = db.get_dataframe(query_cursos_hd)
-                    if df_cursos_hd is not None and not df_cursos_hd.empty:
-                        st.dataframe(df_cursos_hd, use_container_width=True, hide_index=True)
+                    st.session_state.fragmentos_cursos['heredia'] = {
+                        'data': df_cursos_hd,
+                        'timestamp': datetime.now()
+                    }
+    
+    # Mostrar resultados de cursos persistentes
+    if st.session_state.fragmentos_cursos:
+        st.markdown("#### 📚 Resultados de Cursos por Sede (Persistentes)")
+        
+        for key, nombre, icono in fragmentos_orden:
+            if key in st.session_state.fragmentos_cursos:
+                curso_data = st.session_state.fragmentos_cursos[key]
+                
+                with st.expander(f"📖 Cursos en {nombre} - {icono} - Consultado a las {curso_data['timestamp'].strftime('%H:%M:%S')}", expanded=True):
+                    if curso_data['data'] is not None and not curso_data['data'].empty:
+                        st.dataframe(curso_data['data'], use_container_width=True, hide_index=True)
+                    else:
+                        st.warning(f"No hay cursos en {nombre}")
 
 with tab3:
     st.header("↕️ Fragmentación Vertical - Separación Funcional")
@@ -442,12 +553,18 @@ with tab3:
     🔑 **Para operaciones mixtas** necesitas consultar **múltiples tipos de sedes**.
     """)
     
+    # Botón para limpiar resultados
+    if st.button("🗑️ Limpiar Resultados Verticales", key="clear_vertical"):
+        limpiar_resultados('administrativos')
+        limpiar_resultados('academicos')
+        #st.rerun()
+    
     col1, col2 = st.columns(2)
     
     with col1:
         st.markdown("### 🏛️ Fragmento Administrativo (Central)")
         
-        if st.button("💰 Ver Datos Administrativos", type="primary"):
+        if st.button("💰 Ver Datos Administrativos", type="primary", key="admin_data"):
             with st.spinner('Consultando datos administrativos en Central...'):
                 # Planillas
                 planilla_query = """
@@ -474,17 +591,11 @@ with tab3:
                 
                 with get_db_connection('central') as db:
                     if db:
-                        # Mostrar planillas
+                        # Obtener planillas
                         df_planilla = db.get_dataframe(planilla_query)
-                        if df_planilla is not None and not df_planilla.empty:
-                            st.markdown("**📊 Planillas (Solo en Central):**")
-                            st.dataframe(df_planilla, use_container_width=True, hide_index=True)
                         
-                        # Mostrar pagarés
+                        # Obtener pagarés
                         df_pagare = db.get_dataframe(pagare_query)
-                        if df_pagare is not None and not df_pagare.empty:
-                            st.markdown("**📄 Pagarés (Solo en Central):**")
-                            st.dataframe(df_pagare, use_container_width=True, hide_index=True)
                         
                         # Resumen
                         resumen_admin = """
@@ -493,16 +604,21 @@ with tab3:
                             SELECT 'Pagarés' as tabla, COUNT(*) as registros FROM pagare;
                         """
                         df_resumen = db.get_dataframe(resumen_admin)
-                        if df_resumen is not None:
-                            st.markdown("**📈 Resumen Administrativo:**")
-                            st.dataframe(df_resumen, use_container_width=True, hide_index=True)
+                        
+                        # Guardar en session_state
+                        st.session_state.datos_administrativos['central'] = {
+                            'planillas': df_planilla,
+                            'pagares': df_pagare,
+                            'resumen': df_resumen,
+                            'timestamp': datetime.now()
+                        }
     
     with col2:
         st.markdown("### 🎓 Fragmento Académico (Regionales)")
         
         sede_academica = st.selectbox("Selecciona sede académica:", ["San Carlos", "Heredia"])
         
-        if st.button("📚 Ver Datos Académicos", type="primary"):
+        if st.button("📚 Ver Datos Académicos", type="primary", key="acad_data"):
             sede_key = 'sancarlos' if sede_academica == "San Carlos" else 'heredia'
             sede_id = 2 if sede_academica == "San Carlos" else 3
             
@@ -531,35 +647,72 @@ with tab3:
                     FROM asistencia;
                 """
                 
+                # Resumen académico
+                resumen_acad = """
+                    SELECT 'Estudiantes' as tabla, COUNT(*) as registros FROM estudiante
+                    UNION ALL
+                    SELECT 'Matrículas' as tabla, COUNT(*) as registros FROM matricula
+                    UNION ALL
+                    SELECT 'Notas' as tabla, COUNT(*) as registros FROM nota
+                    UNION ALL
+                    SELECT 'Asistencias' as tabla, COUNT(*) as registros FROM asistencia;
+                """
+                
                 with get_db_connection(sede_key) as db:
                     if db:
-                        # Mostrar notas
+                        # Obtener datos
                         df_notas = db.get_dataframe(notas_query)
-                        if df_notas is not None and not df_notas.empty:
-                            st.markdown(f"**📝 Notas en {sede_academica}:**")
-                            st.dataframe(df_notas, use_container_width=True, hide_index=True)
-                        
-                        # Mostrar asistencia
                         df_asistencia = db.get_dataframe(asistencia_query)
-                        if df_asistencia is not None and not df_asistencia.empty:
-                            st.markdown(f"**📅 Resumen Asistencia:**")
-                            st.dataframe(df_asistencia, use_container_width=True, hide_index=True)
-                        
-                        # Resumen académico
-                        resumen_acad = """
-                            SELECT 'Estudiantes' as tabla, COUNT(*) as registros FROM estudiante
-                            UNION ALL
-                            SELECT 'Matrículas' as tabla, COUNT(*) as registros FROM matricula
-                            UNION ALL
-                            SELECT 'Notas' as tabla, COUNT(*) as registros FROM nota
-                            UNION ALL
-                            SELECT 'Asistencias' as tabla, COUNT(*) as registros FROM asistencia;
-                        """
                         df_resumen_acad = db.get_dataframe(resumen_acad)
-                        if df_resumen_acad is not None:
-                            st.markdown(f"**📊 Resumen {sede_academica}:**")
-                            st.dataframe(df_resumen_acad, use_container_width=True, hide_index=True)
-
+                        
+                        # Guardar en session_state
+                        st.session_state.datos_academicos[sede_key] = {
+                            'notas': df_notas,
+                            'asistencia': df_asistencia,
+                            'resumen': df_resumen_acad,
+                            'sede_nombre': sede_academica,
+                            'timestamp': datetime.now()
+                        }
+    
+    # Mostrar resultados administrativos persistentes
+    if 'central' in st.session_state.datos_administrativos:
+        admin_data = st.session_state.datos_administrativos['central']
+        
+        st.markdown("### 💰 Datos Administrativos (Persistentes)")
+        with st.expander(f"🏛️ Datos Administrativos - Central - Consultado a las {admin_data['timestamp'].strftime('%H:%M:%S')}", expanded=True):
+            
+            if admin_data['planillas'] is not None and not admin_data['planillas'].empty:
+                st.markdown("**📊 Planillas (Solo en Central):**")
+                st.dataframe(admin_data['planillas'], use_container_width=True, hide_index=True)
+            
+            if admin_data['pagares'] is not None and not admin_data['pagares'].empty:
+                st.markdown("**📄 Pagarés (Solo en Central):**")
+                st.dataframe(admin_data['pagares'], use_container_width=True, hide_index=True)
+            
+            if admin_data['resumen'] is not None:
+                st.markdown("**📈 Resumen Administrativo:**")
+                st.dataframe(admin_data['resumen'], use_container_width=True, hide_index=True)
+    
+    # Mostrar resultados académicos persistentes
+    for sede_key in ['sancarlos', 'heredia']:
+        if sede_key in st.session_state.datos_academicos:
+            acad_data = st.session_state.datos_academicos[sede_key]
+            icono = '🏢' if sede_key == 'sancarlos' else '🏫'
+            
+            st.markdown(f"### 🎓 Datos Académicos - {acad_data['sede_nombre']} (Persistentes)")
+            with st.expander(f"{icono} Datos Académicos - {acad_data['sede_nombre']} - Consultado a las {acad_data['timestamp'].strftime('%H:%M:%S')}", expanded=True):
+                
+                if acad_data['notas'] is not None and not acad_data['notas'].empty:
+                    st.markdown(f"**📝 Notas en {acad_data['sede_nombre']}:**")
+                    st.dataframe(acad_data['notas'], use_container_width=True, hide_index=True)
+                
+                if acad_data['asistencia'] is not None and not acad_data['asistencia'].empty:
+                    st.markdown(f"**📅 Resumen Asistencia:**")
+                    st.dataframe(acad_data['asistencia'], use_container_width=True, hide_index=True)
+                
+                if acad_data['resumen'] is not None:
+                    st.markdown(f"**📊 Resumen {acad_data['sede_nombre']}:**")
+                    st.dataframe(acad_data['resumen'], use_container_width=True, hide_index=True)
 
 with tab4:
     st.header("🔗 Fragmentación Derivada - Datos que Siguen a Otros")
@@ -578,6 +731,11 @@ with tab4:
     🔑 **Resultado:** Si un estudiante está en San Carlos, **todas** sus matrículas, notas y asistencias también están en San Carlos.
     """)
     
+    # Botón para limpiar resultados
+    if st.button("🗑️ Limpiar Resultados Derivada", key="clear_derivada"):
+        limpiar_resultados('derivada')
+        #st.rerun()
+    
     # Selector de sede para demostración
     col1, col2 = st.columns([1, 3])
     
@@ -587,7 +745,7 @@ with tab4:
     with col2:
         st.info(f"📍 Demostrando fragmentación derivada en **{sede_derivada}**")
     
-    if st.button("🔄 Demostrar Fragmentación Derivada", type="primary"):
+    if st.button("🔄 Demostrar Fragmentación Derivada", type="primary", key="demo_derivada"):
         sede_mapeo = {
             "Central": {"key": "central", "id": 1},
             "San Carlos": {"key": "sancarlos", "id": 2},
@@ -599,7 +757,6 @@ with tab4:
         sede_key = sede_info["key"]
         sede_id = sede_info["id"]
 
-        
         with st.spinner(f'Analizando fragmentación derivada en {sede_derivada}...'):
             try:
                 # Consulta que muestra la cadena de fragmentación derivada
@@ -623,118 +780,89 @@ with tab4:
                     LIMIT 20;
                 """.format(sede_id)
                 
+                # Verificación de integridad
+                verificacion_query = f"""
+                    SELECT 
+                        'Todos los datos están en {sede_derivada}' as verificacion,
+                        COUNT(DISTINCT e.id_estudiante) as estudiantes,
+                        COUNT(DISTINCT m.id_matricula) as matriculas_relacionadas,
+                        COUNT(DISTINCT n.id_nota) as notas_relacionadas,
+                        COUNT(DISTINCT a.id_asistencia) as asistencias_relacionadas
+                    FROM estudiante e
+                    LEFT JOIN matricula m ON e.id_estudiante = m.id_estudiante
+                    LEFT JOIN nota n ON m.id_matricula = n.id_matricula
+                    LEFT JOIN asistencia a ON m.id_matricula = a.id_matricula
+                    WHERE e.id_sede = {sede_id};
+                """
+                
                 with get_db_connection(sede_key) as db:
                     if db:
                         df_derivada = db.get_dataframe(query_derivada)
-                        if df_derivada is not None and not df_derivada.empty:
-                            st.success(f"✅ Fragmentación derivada demostrada en {sede_derivada}")
-                            
-                            col1, col2 = st.columns(2)
-                            
-                            with col1:
-                                st.markdown("#### 📊 Datos Relacionados por Estudiante")
-                                st.dataframe(df_derivada, use_container_width=True, hide_index=True)
-                            
-                            with col2:
-                                st.markdown("#### 📈 Análisis de Fragmentación Derivada")
-                                
-                                # Estadísticas
-                                total_estudiantes = len(df_derivada)
-                                total_matriculas = df_derivada['total_matriculas'].sum()
-                                total_notas = df_derivada['total_notas'].sum()
-                                total_asistencias = df_derivada['total_asistencias'].sum()
-                                
-                                st.metric("Estudiantes en Fragment", total_estudiantes)
-                                st.metric("Matrículas Derivadas", total_matriculas)
-                                st.metric("Notas Derivadas", total_notas) 
-                                st.metric("Asistencias Derivadas", total_asistencias)
-                                
-                                # Gráfico de distribución
-                                fig = px.histogram(df_derivada, x='total_matriculas', 
-                                                 title=f"Distribución de Matrículas por Estudiante - {sede_derivada}")
-                                st.plotly_chart(fig, use_container_width=True)
-                            
-                            # Verificación de integridad
-                            st.markdown("#### ✅ Verificación de Integridad Derivada")
-                            
-                            verificacion_query = f"""
-                                SELECT 
-                                    'Todos los datos están en {sede_derivada}' as verificacion,
-                                    COUNT(DISTINCT e.id_estudiante) as estudiantes,
-                                    COUNT(DISTINCT m.id_matricula) as matriculas_relacionadas,
-                                    COUNT(DISTINCT n.id_nota) as notas_relacionadas,
-                                    COUNT(DISTINCT a.id_asistencia) as asistencias_relacionadas
-                                FROM estudiante e
-                                LEFT JOIN matricula m ON e.id_estudiante = m.id_estudiante
-                                LEFT JOIN nota n ON m.id_matricula = n.id_matricula
-                                LEFT JOIN asistencia a ON m.id_matricula = a.id_matricula
-                                WHERE e.id_sede = {sede_id};
-                            """
-                            
-                            df_verificacion = db.get_dataframe(verificacion_query)
-                            if df_verificacion is not None and not df_verificacion.empty:
-                                st.dataframe(df_verificacion, use_container_width=True, hide_index=True)
-                                
-                                st.success(f"""
-                                ✅ **Fragmentación Derivada Confirmada:**
-                                - Todos los estudiantes de {sede_derivada} están en esta sede
-                                - Todas sus matrículas están en la misma sede
-                                - Todas sus notas están en la misma sede  
-                                - Todas sus asistencias están en la misma sede
-                                
-                                🔑 **Beneficio:** Consultas completamente locales sin dependencias externas
-                                """)
-                        else:
-                            st.warning(f"No hay datos para mostrar fragmentación derivada en {sede_derivada}")
-                            
+                        df_verificacion = db.get_dataframe(verificacion_query)
+                        
+                        # Guardar en session_state
+                        st.session_state.fragmentacion_derivada[sede_derivada] = {
+                            'data': df_derivada,
+                            'verificacion': df_verificacion,
+                            'sede_id': sede_id,
+                            'timestamp': datetime.now()
+                        }
+                        
             except Exception as e:
                 st.error(f"❌ Error en demostración de fragmentación derivada: {str(e)}")
     
-    # Ejemplo de consulta que NO requiere múltiples sedes (gracias a fragmentación derivada)
-    st.markdown("### 🎯 Ejemplo: Consulta Completamente Local")
-    st.markdown("""
-    **💡 Beneficio de la Fragmentación Derivada:** Puedes obtener información completa de un estudiante 
-    consultando **solo una sede** porque todos sus datos relacionados están en la misma ubicación.
-    """)
-    
-    sede_consulta = st.selectbox("Selecciona sede para consulta local:", ["San Carlos", "Heredia"], key="consulta_local")
-    
-    if st.button("📋 Ejecutar Consulta Completamente Local"):
-        sede_key = 'sancarlos' if sede_consulta == "San Carlos" else 'heredia'
-        sede_id = 2 if sede_consulta == "San Carlos" else 3
+    # Mostrar resultados de fragmentación derivada persistentes
+    if st.session_state.fragmentacion_derivada:
+        st.markdown("### 🔗 Resultados de Fragmentación Derivada (Persistentes)")
         
-        query_local = f"""
-            SELECT 
-                e.nombre as estudiante,
-                c.nombre as curso,
-                n.nota,
-                CASE WHEN n.nota >= 70 THEN 'Aprobado' ELSE 'Reprobado' END as estado,
-                a.fecha as ultima_clase,
-                CASE WHEN a.presente = 1 THEN 'Presente' ELSE 'Ausente' END as asistio
-            FROM estudiante e
-            JOIN matricula m ON e.id_estudiante = m.id_estudiante
-            JOIN curso c ON m.id_curso = c.id_curso
-            LEFT JOIN nota n ON m.id_matricula = n.id_matricula
-            LEFT JOIN asistencia a ON m.id_matricula = a.id_matricula
-            WHERE e.id_sede = {sede_id}
-            ORDER BY e.nombre, c.nombre
-            LIMIT 40;
-        """
-        
-        with get_db_connection(sede_key) as db:
-            if db:
-                df_local = db.get_dataframe(query_local)
-                if df_local is not None and not df_local.empty:
-                    st.success(f"✅ Consulta LOCAL exitosa en {sede_consulta} - Sin necesidad de consultar otras sedes")
-                    st.dataframe(df_local, use_container_width=True, hide_index=True)
+        for sede_nombre, data in st.session_state.fragmentacion_derivada.items():
+            icono_map = {"Central": "🏛️", "San Carlos": "🏢", "Heredia": "🏫"}
+            icono = icono_map.get(sede_nombre, "📍")
+            
+            with st.expander(f"{icono} Fragmentación Derivada - {sede_nombre} - Consultado a las {data['timestamp'].strftime('%H:%M:%S')}", expanded=True):
+                if data['data'] is not None and not data['data'].empty:
+                    col1, col2 = st.columns(2)
                     
-                    st.info(f"""
-                    🔑 **Fragmentación Derivada en Acción:**
-                    - Consultamos solo la base de datos de {sede_consulta}
-                    - Obtuvimos datos completos: estudiante + curso + nota + asistencia
-                    - No necesitamos consultar ninguna otra sede
-                    - Rendimiento optimizado por localidad de datos
-                    """)
+                    with col1:
+                        st.markdown("#### 📊 Datos Relacionados por Estudiante")
+                        st.dataframe(data['data'], use_container_width=True, hide_index=True)
+                    
+                    with col2:
+                        st.markdown("#### 📈 Análisis de Fragmentación Derivada")
+                        
+                        # Estadísticas
+                        total_estudiantes = len(data['data'])
+                        total_matriculas = data['data']['total_matriculas'].sum()
+                        total_notas = data['data']['total_notas'].sum()
+                        total_asistencias = data['data']['total_asistencias'].sum()
+                        
+                        st.metric("Estudiantes en Fragmento", total_estudiantes)
+                        st.metric("Matrículas Derivadas", total_matriculas)
+                        st.metric("Notas Derivadas", total_notas) 
+                        st.metric("Asistencias Derivadas", total_asistencias)
+                        
+                        # Gráfico de distribución
+                        if total_matriculas > 0:
+                            fig = px.histogram(data['data'], x='total_matriculas', 
+                                             title=f"Distribución de Matrículas por Estudiante - {sede_nombre}")
+                            st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Verificación de integridad
+                    if data['verificacion'] is not None and not data['verificacion'].empty:
+                        st.markdown("#### ✅ Verificación de Integridad Derivada")
+                        st.dataframe(data['verificacion'], use_container_width=True, hide_index=True)
+                        
+                        st.success(f"""
+                        ✅ **Fragmentación Derivada Confirmada:**
+                        - Todos los estudiantes de {sede_nombre} están en esta sede
+                        - Todas sus matrículas están en la misma sede
+                        - Todas sus notas están en la misma sede  
+                        - Todas sus asistencias están en la misma sede
+                        
+                        🔑 **Beneficio:** Consultas completamente locales sin dependencias externas
+                        """)
+                else:
+                    st.warning(f"No hay datos para mostrar fragmentación derivada en {sede_nombre}")
 
 # Footer con resumen de conceptos
 st.markdown("---")
@@ -770,6 +898,6 @@ with col3:
     """)
 
 st.markdown(
-    f"<p style='text-align: center; color: gray; font-size: 12px;'>Conceptos de Fragmentación Correctos | Sistema Cenfotec | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>",
+    f"<p style='text-align: center; color: gray; font-size: 12px;'>Conceptos de Fragmentación con Resultados Persistentes | Sistema Cenfotec | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>",
     unsafe_allow_html=True
 )
