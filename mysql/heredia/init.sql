@@ -57,6 +57,9 @@ CREATE TABLE estudiante (
     email VARCHAR(255) UNIQUE NOT NULL,
     id_sede INT NOT NULL DEFAULT 3, -- Heredia
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    estado ENUM('activo', 'transferido', 'inactivo'),
+    sede_actual INT DEFAULT 1,
+    fecha_transferencia TIMESTAMP,
     INDEX idx_sede (id_sede),
     INDEX idx_email (email),
     FOREIGN KEY (id_sede) REFERENCES sede(id_sede) ON UPDATE CASCADE
@@ -161,12 +164,12 @@ INSERT INTO profesor (id_profesor, nombre, email, id_sede) VALUES
 (6, 'Silvia Morales Pérez', 'silvia.morales@cenfotec.ac.cr', 3);
 
 -- Insertar estudiantes de Heredia (Fragmentación Horizontal)
-INSERT INTO estudiante (nombre, email, id_sede) VALUES
-('Sofía Chaves Morales', 'sofia.chaves@estudiante.cenfotec.ac.cr', 3),
-('Diego Mata Rojas', 'diego.mata@estudiante.cenfotec.ac.cr', 3),
-('Camila Vargas Solís', 'camila.vargas@estudiante.cenfotec.ac.cr', 3),
-('Andrés Quesada Herrera', 'andres.quesada@estudiante.cenfotec.ac.cr', 3),
-('Valeria Rojas Camacho', 'valeria.rojas@estudiante.cenfotec.ac.cr', 3);
+INSERT INTO estudiante (nombre, email, id_sede, estado, sede_actual, fecha_transferencia) VALUES
+('Sofía Chaves Morales', 'sofia.chaves@estudiante.cenfotec.ac.cr', 3, 'activo', 3, NULL),
+('Diego Mata Rojas', 'diego.mata@estudiante.cenfotec.ac.cr', 3, 'activo', 3, NULL),
+('Camila Vargas Solís', 'camila.vargas@estudiante.cenfotec.ac.cr', 3, 'activo', 3, NULL),
+('Andrés Quesada Herrera', 'andres.quesada@estudiante.cenfotec.ac.cr', 3, 'activo', 3, NULL),
+('Valeria Rojas Camacho', 'valeria.rojas@estudiante.cenfotec.ac.cr', 3, 'activo', 3, NULL);
 
 -- Insertar cursos
 INSERT INTO curso (nombre, id_carrera) VALUES

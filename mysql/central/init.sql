@@ -85,6 +85,9 @@ CREATE TABLE estudiante (
     email VARCHAR(255) UNIQUE NOT NULL,
     id_sede INT NOT NULL DEFAULT 1, -- Central
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    estado ENUM('activo', 'transferido', 'inactivo'),
+    sede_actual INT DEFAULT 1,
+    fecha_transferencia TIMESTAMP,
     INDEX idx_sede (id_sede),
     INDEX idx_email (email),
     FOREIGN KEY (id_sede) REFERENCES sede(id_sede) ON UPDATE CASCADE
@@ -168,6 +171,19 @@ CREATE TABLE replication_log (
     INDEX idx_estado (estado_replicacion)
 ) ENGINE=InnoDB;
 
+
+-- Crear tabla de auditoría
+CREATE TABLE IF NOT EXISTS transferencia_estudiante (
+    id_transferencia INT PRIMARY KEY AUTO_INCREMENT,
+    id_estudiante INT,
+    sede_origen INT,
+    sede_destino INT,
+    fecha_transferencia TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    estado ENUM('completada', 'revertida'),
+    motivo TEXT,
+    FOREIGN KEY (id_estudiante) REFERENCES estudiante(id_estudiante)
+);
+
 -- ========================================
 -- DATOS INICIALES DE PRUEBA
 -- ========================================
@@ -212,12 +228,12 @@ INSERT INTO pagare (id_estudiante, monto, vencimiento) VALUES
 (3, 600000.00, '2024-08-15');
 
 -- Insertar estudiantes de Central
-INSERT INTO estudiante (nombre, email, id_sede) VALUES
-('Andrea López Vargas', 'andrea.lopez@estudiante.cenfotec.ac.cr', 1),
-('Miguel Rojas Hernández', 'miguel.rojas@estudiante.cenfotec.ac.cr', 1),
-('Patricia Méndez Castro', 'patricia.mendez@estudiante.cenfotec.ac.cr', 1),
-('Fernando Gutiérrez Mora', 'fernando.gutierrez@estudiante.cenfotec.ac.cr', 1),
-('Isabella Vargas Solís', 'isabella.vargas@estudiante.cenfotec.ac.cr', 1);
+INSERT INTO estudiante (nombre, email, id_sede, estado, sede_actual, fecha_transferencia) VALUES
+('Andrea López Vargas', 'andrea.lopez@estudiante.cenfotec.ac.cr', 1, 'activo', 1, NULL),
+('Miguel Rojas Hernández', 'miguel.rojas@estudiante.cenfotec.ac.cr', 1, 'activo', 1, NULL),
+('Patricia Méndez Castro', 'patricia.mendez@estudiante.cenfotec.ac.cr', 1, 'activo', 1, NULL),
+('Fernando Gutiérrez Mora', 'fernando.gutierrez@estudiante.cenfotec.ac.cr', 1, 'activo', 1, NULL),
+('Isabella Vargas Solís', 'isabella.vargas@estudiante.cenfotec.ac.cr', 1, 'activo', 1, NULL);
 
 -- Insertar cursos para Central
 INSERT INTO curso (nombre, id_carrera) VALUES

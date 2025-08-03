@@ -57,6 +57,9 @@ CREATE TABLE estudiante (
     email VARCHAR(255) UNIQUE NOT NULL,
     id_sede INT NOT NULL DEFAULT 2, -- San Carlos
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    estado ENUM('activo', 'transferido', 'inactivo'),
+    sede_actual INT DEFAULT 1,
+    fecha_transferencia TIMESTAMP,
     INDEX idx_sede (id_sede),
     INDEX idx_email (email),
     FOREIGN KEY (id_sede) REFERENCES sede(id_sede) ON UPDATE CASCADE
@@ -160,12 +163,12 @@ INSERT INTO profesor (id_profesor, nombre, email, id_sede) VALUES
 (4, 'Ana Jiménez Solano', 'ana.jimenez@cenfotec.ac.cr', 2);
 
 -- Insertar estudiantes de San Carlos (Fragmentación Horizontal)
-INSERT INTO estudiante (nombre, email, id_sede) VALUES
-('Juan Pérez López', 'juan.perez@estudiante.cenfotec.ac.cr', 2),
-('María Rodríguez Vargas', 'maria.rodriguez@estudiante.cenfotec.ac.cr', 2),
-('Carlos González Mora', 'carlos.gonzalez@estudiante.cenfotec.ac.cr', 2),
-('Ana Jiménez Castro', 'ana.jimenez@estudiante.cenfotec.ac.cr', 2),
-('Luis Hernández Solano', 'luis.hernandez@estudiante.cenfotec.ac.cr', 2);
+INSERT INTO estudiante (nombre, email, id_sede, estado, sede_actual, fecha_transferencia) VALUES
+('Juan Pérez López', 'juan.perez@estudiante.cenfotec.ac.cr', 2, 'activo', 2, NULL),
+('María Rodríguez Vargas', 'maria.rodriguez@estudiante.cenfotec.ac.cr', 2, 'activo', 2, NULL),
+('Carlos González Mora', 'carlos.gonzalez@estudiante.cenfotec.ac.cr', 2, 'activo', 2, NULL),
+('Ana Jiménez Castro', 'ana.jimenez@estudiante.cenfotec.ac.cr', 2, 'activo', 2, NULL),
+('Luis Hernández Solano', 'luis.hernandez@estudiante.cenfotec.ac.cr', 2, 'activo', 2, NULL);
 
 -- Insertar cursos
 INSERT INTO curso (nombre, id_carrera) VALUES

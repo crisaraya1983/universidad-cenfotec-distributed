@@ -50,76 +50,157 @@ with tab1:
     
     with col1:
         st.markdown("""
-        ### 🎯 Propiedades ACID Distribuidas
+        ### 🎯 Transacciones en Sistema Cenfotec
+        
+        **¿Qué es una Transacción Distribuida?** 💼
+        - Operación que modifica datos en **múltiples sedes** simultáneamente
+        - Garantiza que **todas las operaciones se completen** o **ninguna**
+        - Mantiene **consistencia** entre las bases de datos distribuidas
+        
+        **Propiedades ACID Implementadas** ✅
         
         **Atomicidad** ⚛️
-        - Todas las operaciones se completan o ninguna
-        - Protocolo 2PC (Two-Phase Commit)
-        - Rollback en caso de fallo
+        - Si falla una operación, se revierten **todas** las anteriores
+        - Ejemplo: Si falla el pago, se cancelan las matrículas
         
-        **Consistencia** ✅
-        - Estado válido antes y después
-        - Validaciones distribuidas
-        - Integridad referencial entre nodos
+        **Consistencia** 🔄
+        - Los datos quedan en estado válido después de cada transacción
+        - Ejemplo: Un pagaré nunca queda con monto negativo
         
         **Aislamiento** 🔒
-        - Transacciones concurrentes no interfieren
-        - Bloqueos distribuidos
-        - Niveles de aislamiento configurables
+        - Las transacciones no interfieren entre sí
+        - Ejemplo: Dos matrículas simultáneas no causan conflictos
         
         **Durabilidad** 💾
-        - Cambios persisten tras confirmación
-        - Logs distribuidos
-        - Recuperación ante fallos
+        - Los cambios persisten aunque falle el sistema
+        - Ejemplo: Una vez completado el pago, no se pierde
         """)
     
     with col2:
         st.markdown("""
-        ### 🔧 Tipos de Transacciones
+        ### 🚀 Transacciones Implementadas
         
-        **1. Transacciones Locales**
-        - Solo afectan una sede
-        - Ejemplo: Matricular estudiante local
-        - Rápidas y simples
+        **1. Transacción de Pago Global** 💰
+        ```
+        📍 Pasos ejecutados:
+        1. Verificar estudiante en su sede
+        2. Registrar pago en sede del estudiante
+        3. Si aplica: Actualizar pagaré en Central
+        4. Confirmar transacción distribuida
+        ```
         
-        **2. Transacciones Globales**
-        - Afectan múltiples sedes
-        - Ejemplo: Generar reporte consolidado
-        - Requieren coordinación
+        **2. Transacción de Matrícula** 📚
+        ```
+        📍 Pasos ejecutados:
+        1. Crear estudiante nuevo (si aplica)
+        2. Verificar disponibilidad de cursos
+        3. Registrar matrícula(s) en la sede
+        4. Procesar pago O crear pagaré en Central
+        5. Actualizar cache distribuido
+        6. Confirmar transacción completa
+        ```
         
-        **3. Transacciones Compensatorias**
-        - Permiten deshacer operaciones
-        - Útiles cuando no hay 2PC
-        - Mantienen consistencia eventual
+        **¿Por qué son Distribuidas?** 🌐
+        - **Pago Global**: Afecta sede del estudiante + Central (pagarés)
+        - **Matrícula**: Afecta sede local + Central (pagarés/cache)
+        
+        **Ventajas del Enfoque Distribuido** ⭐
+        - **Rendimiento**: Cada sede maneja sus propios datos
+        - **Disponibilidad**: Si una sede falla, otras siguen funcionando
+        - **Escalabilidad**: Fácil agregar nuevas sedes
+        - **Consistencia**: Los datos críticos se sincronizan
         """)
+    
+    # Información práctica sobre el sistema
+    st.markdown("---")
+    
+    st.markdown("### 🏗️ Arquitectura de Transacciones en el Sistema")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("""
+        **🏛️ Sede Central**
+        - **Datos maestros**: Carreras, Profesores
+        - **Administración**: Planillas, Pagarés
+        - **Coordinación**: Transacciones distribuidas
         
-        # Diagrama del protocolo 2PC
-        st.markdown("### 📐 Protocolo Two-Phase Commit")
+        **Rol en Transacciones:**
+        - Almacena pagarés de todos los estudiantes
+        - Coordina operaciones entre sedes
+        - Mantiene cache distribuido
+        """)
+    
+    with col2:
+        st.markdown("""
+        **🏢 Sedes Regionales**
+        - **San Carlos** y **Heredia**
+        - **Datos locales**: Estudiantes, Matrículas, Pagos
+        - **Operaciones**: Académicas y financieras locales
         
-        fig = go.Figure()
+        **Rol en Transacciones:**
+        - Procesan matrículas de sus estudiantes
+        - Registran pagos localmente
+        - Participan en transacciones distribuidas
+        """)
+    
+    with col3:
+        st.markdown("""
+        **🔄 Coordinación**
+        - **Comunicación** entre todas las sedes
+        - **Sincronización** de datos críticos
+        - **Rollback** automático en caso de errores
         
-        # Timeline
-        fig.add_trace(go.Scatter(
-            x=[0, 1, 2, 3, 4],
-            y=[0, 0, 0, 0, 0],
-            mode='markers+text',
-            marker=dict(size=20, color=COLORS['primary']),
-            text=['Inicio', 'Prepare', 'Vote', 'Commit', 'Complete'],
-            textposition="top center",
-            name='Fases'
-        ))
+        **Mecanismos:**
+        - Verificación previa de disponibilidad
+        - Registro de logs de auditoría
+        - Manejo de errores y recuperación
+        """)
+    
+    # Casos de uso específicos
+    st.markdown("---")
+    
+    st.markdown("### 🔍 Vistas de Usuario Distribuidas")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("""
+        **¿Qué son las Vistas Distribuidas?** 👁️
+        - Presentaciones de datos **adaptadas por rol** de usuario
+        - Acceso **controlado** a información de múltiples sedes
+        - **Abstracción** de la complejidad del sistema distribuido
         
-        fig.update_layout(
-            title="Fases del Protocolo 2PC",
-            showlegend=False,
-            height=200,
-            xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-            yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-1, 1])
-        )
+        **Tipos de Vistas Implementadas:**
+        - **Vista Estudiante**: Sus notas, pagos, horarios
+        - **Vista Profesor**: Estudiantes matriculados, registro de notas
+        - **Vista Administrativa**: Pagos, pagarés, reportes financieros
+        - **Vista Directiva**: KPIs, análisis consolidados, tendencias
+        """)
+    
+    with col2:
+        st.markdown("""
+        **Ventajas de las Vistas Distribuidas** ⭐
         
-        st.plotly_chart(fig, use_container_width=True)
+        **Seguridad** 🔒
+        - Cada usuario ve **solo lo que necesita**
+        - Estudiantes no ven datos de otros estudiantes
+        - Profesores solo ven sus cursos asignados
+        
+        **Rendimiento** ⚡
+        - Consultas **optimizadas** por rol
+        - Datos **pre-filtrados** por sede y permisos
+        - **Cache inteligente** para consultas frecuentes
+        
+        **Simplicidad** 🎯
+        - Usuario no necesita saber dónde están los datos
+        - **Interfaz unificada** aunque los datos estén distribuidos
+        - **Experiencia consistente** en todas las sedes
+        """)
+    
+    st.markdown("---")
 
-# TAB2 - TRANSACCIÓN PAGO GLOBAL (SIN CAMBIOS)
+# TAB2 - TRANSACCIÓN PAGO GLOBAL
 with tab2:
     st.header("💰 Transacción: Procesamiento de Pago")
     
@@ -931,18 +1012,10 @@ with st.sidebar:
     
     ✅ **Vistas de usuario** según roles y permisos
     
-    ✅ **Operaciones reales** con base de datos
+    ✅ **Operaciones** con base de datos
     """)
     
     st.markdown("---")
-    
-    # Monitor de transacciones
-    st.markdown("### 📊 Monitor de Transacciones")
-    
-    # Simulación de métricas
-    st.metric("Transacciones/min", "42", "+5")
-    st.metric("Tiempo promedio", "1.2s", "-0.1s")
-    st.metric("Tasa de éxito", "99.8%", "0%")
     
     # Mini log
     st.markdown("### 📜 Últimas Transacciones")
@@ -953,8 +1026,3 @@ with st.sidebar:
             st.text(f"{time_ago.strftime('%H:%M:%S')} - TRX-{1000+i}")
     
     st.markdown("---")
-    
-    st.markdown("""
-    💡 **Tip**: Las transacciones distribuidas son más complejas
-    pero esenciales para mantener la consistencia global del sistema.
-    """)
