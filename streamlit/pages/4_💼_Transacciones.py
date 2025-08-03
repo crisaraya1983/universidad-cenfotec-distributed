@@ -305,17 +305,21 @@ with tab2:
 [{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] TRANSACTION COMPLETED SUCCESSFULLY"""
             st.code(audit_log, language='log')
 
-# TAB3 - NUEVO: TRANSACCIÓN PROCESO DE MATRÍCULA
+# TAB3 - TRANSACCIÓN PROCESO DE MATRÍCULA
 with tab3:
     st.header("📚 Transacción: Proceso de Matrícula")
     
     st.markdown("""
-    Proceso de matrícula que puede involucrar múltiples operaciones:
+    Proceso de matrícula:
     - Crear estudiante nuevo (si aplica)
     - Registrar matrícula(s) en curso(s)
     - Procesar pago inmediato o crear pagaré
     - Actualizar registros distribuidos
     """)
+    
+    # Inicializar session_state para estudiante recién creado
+    if 'nuevo_estudiante_creado' not in st.session_state:
+        st.session_state.nuevo_estudiante_creado = None
     
     # PASO 1: SELECCIONAR SEDE
     st.markdown("### 🏢 Configuración de Matrícula")
@@ -330,39 +334,86 @@ with tab3:
         sede_info_matricula = get_sede_info(sede_matricula)
     
     with col2:
-        tipo_estudiante = st.radio("Tipo de estudiante:", [
-            "Estudiante existente",
-            "Estudiante nuevo"
-        ])
+        if st.session_state.nuevo_estudiante_creado:
+            tipo_estudiante = "Estudiante existente"
+            st.success("✅ Continuando con el estudiante recién creado")
+            
+            if st.button("🔄 Crear otro estudiante nuevo", key="cambiar_a_nuevo"):
+                st.session_state.nuevo_estudiante_creado = None
+                st.rerun()
+        else:
+            tipo_estudiante = st.radio("Tipo de estudiante:", [
+                "Estudiante existente",
+                "Estudiante nuevo"
+            ])
     
     # PASO 2: SELECCIONAR O CREAR ESTUDIANTE
     estudiante_matricula = None
     
     if tipo_estudiante == "Estudiante existente":
-        st.markdown("### 👤 Seleccionar Estudiante Existente")
+        st.markdown("### 👤 Seleccionar Estudiante")
         
-        # Cargar estudiantes de la sede seleccionada
-        with get_db_connection(sede_matricula) as db:
-            if db:
-                result = db.execute_query("SELECT id_estudiante, nombre, email FROM estudiante")
-                if result:
-                    estudiantes_options = {f"{est['nombre']} ({est['email']})": est for est in result}
-                    
-                    if estudiantes_options:
-                        estudiante_selected = st.selectbox("Estudiante:", list(estudiantes_options.keys()))
-                        estudiante_matricula = estudiantes_options[estudiante_selected]
+        # Inicializar estudiante seleccionado en session_state
+        if 'estudiante_seleccionado_final' not in st.session_state:
+            st.session_state.estudiante_seleccionado_final = None
+        
+        # Si hay un estudiante recién creado, usarlo automáticamente
+        if st.session_state.nuevo_estudiante_creado:
+            estudiante_matricula = st.session_state.nuevo_estudiante_creado
+            st.session_state.estudiante_seleccionado_final = estudiante_matricula
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.success(f"✅ **Estudiante:** {estudiante_matricula['nombre']}")
+            with col2:
+                st.success(f"✅ **Email:** {estudiante_matricula['email']}")
+            with col3:
+                st.success(f"✅ **ID:** {estudiante_matricula['id_estudiante']}")
+            
+            st.info("🎯 Estudiante nuevo por matricular")
+            
+            # Limpiar el nuevo estudiante creado pero mantener el seleccionado
+            st.session_state.nuevo_estudiante_creado = None
+            
+        else:
+            # Mostrar selector normal de estudiantes existentes
+            with get_db_connection(sede_matricula) as db:
+                if db:
+                    result = db.execute_query("SELECT id_estudiante, nombre, email FROM estudiante")
+                    if result:
+                        estudiantes_options = {f"{est['nombre']} ({est['email']})": est for est in result}
                         
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            st.success(f"✅ **Estudiante:** {estudiante_matricula['nombre']}")
-                        with col2:
-                            st.success(f"✅ **Email:** {estudiante_matricula['email']}")
+                        if estudiantes_options:
+                            # Determinar el índice por defecto
+                            default_index = 0
+                            if st.session_state.estudiante_seleccionado_final:
+                                # Buscar el estudiante previamente seleccionado
+                                for i, (key, est) in enumerate(estudiantes_options.items()):
+                                    if est['id_estudiante'] == st.session_state.estudiante_seleccionado_final['id_estudiante']:
+                                        default_index = i
+                                        break
+                            
+                            estudiante_selected = st.selectbox(
+                                "Estudiante:", 
+                                list(estudiantes_options.keys()),
+                                index=default_index,
+                                key="selectbox_estudiante_existente"
+                            )
+                            
+                            estudiante_matricula = estudiantes_options[estudiante_selected]
+                            st.session_state.estudiante_seleccionado_final = estudiante_matricula
+                            
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                st.success(f"✅ **Estudiante:** {estudiante_matricula['nombre']}")
+                            with col2:
+                                st.success(f"✅ **Email:** {estudiante_matricula['email']}")
+                        else:
+                            st.warning("No hay estudiantes registrados en esta sede")
                     else:
-                        st.warning("No hay estudiantes registrados en esta sede")
+                        st.error("Error al cargar estudiantes")
                 else:
-                    st.error("Error al cargar estudiantes")
-            else:
-                st.error("No se pudo conectar a la base de datos")
+                    st.error("No se pudo conectar a la base de datos")
     
     else:  # Estudiante nuevo
         st.markdown("### ➕ Crear Estudiante Nuevo")
@@ -374,15 +425,16 @@ with tab3:
                 nuevo_nombre = st.text_input("Nombre completo:", 
                                            placeholder="Ej: María García López")
                 nuevo_email = st.text_input("Email institucional:", 
-                                          placeholder="Ej: maria.garcia@estudiante.cenfotec.ac.cr")
+                                          placeholder="Ej: maria.garcia@ucenfotec.ac.cr")
             
             with col2:
                 st.markdown("**Información adicional:**")
                 st.text(f"• Sede: {sede_info_matricula['name']}")
                 st.text("• Se asignará ID automáticamente")
                 st.text("• Email debe ser único en el sistema")
+                st.text("• Continuará automáticamente con matrícula")
             
-            crear_estudiante = st.form_submit_button("➕ Crear Estudiante")
+            crear_estudiante = st.form_submit_button("➕ Crear Estudiante y Continuar")
             
             if crear_estudiante:
                 if nuevo_nombre and nuevo_email:
@@ -407,8 +459,8 @@ with tab3:
                                 sede_ids = {"central": 1, "sancarlos": 2, "heredia": 3}
                                 id_sede = sede_ids[sede_matricula]
                                 
-                                insert_query = "INSERT INTO estudiante (nombre, email, id_sede) VALUES (%s, %s, %s)"
-                                affected = db.execute_update(insert_query, (nuevo_nombre, nuevo_email, id_sede))
+                                insert_query = "INSERT INTO estudiante (nombre, email, id_sede, sede_actual) VALUES (%s, %s, %s, %s)"
+                                affected = db.execute_update(insert_query, (nuevo_nombre, nuevo_email, id_sede, id_sede))
                                 
                                 if affected and affected > 0:
                                     # Obtener el ID del estudiante recién creado
@@ -416,9 +468,11 @@ with tab3:
                                     result = db.execute_query(get_id_query, (nuevo_email,))
                                     
                                     if result:
-                                        estudiante_matricula = result[0]
-                                        st.success(f"✅ Estudiante creado exitosamente - ID: {estudiante_matricula['id_estudiante']}")
-                                        time.sleep(2)
+                                        # Guardar en session_state y rerun
+                                        st.session_state.nuevo_estudiante_creado = result[0]
+                                        st.success(f"✅ Estudiante creado exitosamente - ID: {result[0]['id_estudiante']}")
+                                        st.success("🔄 Continuando automáticamente con el proceso de matrícula...")
+                                        time.sleep(1)
                                         st.rerun()
                                     else:
                                         st.error("❌ Error al obtener datos del estudiante creado")
@@ -517,7 +571,7 @@ with tab3:
                                     step3 = st.empty()
                                     step3.info(f"📍 Paso 3/6: Registrando {len(cursos_seleccionados)} matrícula(s)...")
                                     
-                                    # EJECUTAR INSERTs REALES DE MATRÍCULA
+                                    # EJECUTAR INSERT DE MATRÍCULA
                                     with get_db_connection(sede_matricula) as db:
                                         if db:
                                             for curso in cursos_seleccionados:
@@ -562,7 +616,7 @@ with tab3:
                                     else:  # Crear pagaré
                                         step4.info("📍 Paso 4/6: Creando pagaré en Central...")
                                         
-                                        # INSERT REAL DE PAGARÉ EN CENTRAL
+                                        # INSERT DE PAGARÉ EN CENTRAL
                                         with get_db_connection('central') as db:
                                             if db:
                                                 pagare_query = "INSERT INTO pagare (id_estudiante, monto, vencimiento) VALUES (%s, %s, %s)"
@@ -637,9 +691,8 @@ with tab3:
                                 # Log de auditoría
                                 with st.expander("📜 Ver Log Detallado de Auditoría"):
                                     audit_log = f"""[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] BEGIN MATRICULA TRANSACTION {trx_id}
-                                    [{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] VERIFY student_id={estudiante_matricula['id_estudiante']} AT {sede_matricula}
-                                    [{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] VERIFY courses availability for carrera_id={id_carrera_selected}
-                                    """
+[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] VERIFY student_id={estudiante_matricula['id_estudiante']} AT {sede_matricula}
+[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] VERIFY courses availability for carrera_id={id_carrera_selected}"""
                                     
                                     for curso in cursos_seleccionados:
                                         audit_log += f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] INSERT INTO matricula (id_estudiante, id_curso) VALUES ({estudiante_matricula['id_estudiante']}, {curso['id_curso']})"
@@ -650,10 +703,9 @@ with tab3:
                                         audit_log += f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] INSERT INTO pagare (id_estudiante, monto, vencimiento) VALUES ({estudiante_matricula['id_estudiante']}, {costo_total}, '{vencimiento}')"
                                     
                                     audit_log += f"""
-                                    [{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] UPDATE DISTRIBUTED CACHE
-                                    [{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] COMMIT TRANSACTION {trx_id}
-                                    [{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] MATRICULA PROCESS COMPLETED SUCCESSFULLY
-                                    """
+[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] UPDATE DISTRIBUTED CACHE
+[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] COMMIT TRANSACTION {trx_id}
+[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] MATRICULA PROCESS COMPLETED SUCCESSFULLY"""
                                     
                                     st.code(audit_log, language='log')
                         else:
