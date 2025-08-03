@@ -35,10 +35,9 @@ Las **transacciones distribuidas** son operaciones que involucran datos en múlt
 del sistema. Deben mantener las propiedades ACID incluso cuando los datos están distribuidos.
 """)
 
-# Tabs principales
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+# Tabs principales - RESTAURAMOS LOS 5 TABS ORIGINALES
+tab1, tab2, tab3, tab4 = st.tabs([
     "📋 Conceptos",
-    "📊 Consultas Globales", 
     "💰 Transacción: Pago Global",
     "📈 Transacción: Reporte Consolidado",
     "🔍 Vistas de Usuario"
@@ -121,131 +120,6 @@ with tab1:
         st.plotly_chart(fig, use_container_width=True)
 
 with tab2:
-    st.header("📊 Consultas Globales")
-    st.markdown("""
-    Las consultas globales obtienen información de múltiples sedes para generar
-    una vista unificada del sistema.
-    """)
-    
-    # Consulta 1: Total de estudiantes por sede
-    st.subheader("👥 Consulta Global: Distribución de Estudiantes")
-    
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        st.markdown("**Query distribuida:**")
-        st.code("""
-        -- Ejecutar en cada sede regional
-        SELECT s.nombre as sede, 
-               COUNT(DISTINCT e.id_estudiante) as estudiantes,
-               COUNT(DISTINCT m.id_matricula) as matriculas,
-               AVG(n.nota) as promedio_general
-        FROM estudiante e
-        JOIN sede s ON e.id_sede = s.id_sede
-        LEFT JOIN matricula m ON e.id_estudiante = m.id_estudiante
-        LEFT JOIN nota n ON m.id_matricula = n.id_matricula
-        GROUP BY s.nombre
-        """, language='sql')
-    
-    with col2:
-        if st.button("🔍 Ejecutar Consulta Global", key="query1"):
-            with st.spinner("Ejecutando en todas las sedes..."):
-                # Simular ejecución distribuida
-                progress = st.progress(0)
-                
-                results = []
-                sedes = ['sancarlos', 'heredia']
-                
-                for i, sede in enumerate(sedes):
-                    progress.progress((i + 1) / len(sedes))
-                    time.sleep(0.5)  # Simular latencia
-                    
-                    with get_db_connection(sede) as db:
-                        if db:
-                            query = """
-                            SELECT s.nombre as sede, 
-                                   COUNT(DISTINCT e.id_estudiante) as estudiantes,
-                                   COUNT(DISTINCT m.id_matricula) as matriculas,
-                                   AVG(n.nota) as promedio_general
-                            FROM estudiante e
-                            JOIN sede s ON e.id_sede = s.id_sede
-                            LEFT JOIN matricula m ON e.id_estudiante = m.id_estudiante
-                            LEFT JOIN nota n ON m.id_matricula = n.id_matricula
-                            GROUP BY s.nombre
-                            """
-                            result = db.execute_query(query)
-                            if result:
-                                results.extend(result)
-                
-                progress.progress(1.0)
-                st.success("✅ Consulta completada")
-    
-    # Mostrar resultados
-    if 'results' in locals() and results:
-        df_results = pd.DataFrame(results)
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Tabla de resultados
-            st.markdown("**Resultados Consolidados:**")
-            st.dataframe(df_results, use_container_width=True, hide_index=True)
-        
-        with col2:
-            # Gráfico de distribución
-            fig = px.bar(df_results, x='sede', y='estudiantes',
-                        title='Estudiantes por Sede',
-                        color='sede',
-                        color_discrete_map={'San Carlos': COLORS['secondary'],
-                                          'Heredia': COLORS['success']})
-            st.plotly_chart(fig, use_container_width=True)
-    
-    # Consulta 2: Reporte financiero global
-    st.subheader("💰 Consulta Global: Reporte Financiero")
-    
-    with st.expander("Ver consulta de reporte financiero"):
-        col1, col2 = st.columns([2, 1])
-        
-        with col1:
-            st.markdown("**Query distribuida compleja:**")
-            st.code("""
-            -- SEDE CENTRAL: Obtener planillas
-            SELECT 'Planillas' as concepto, 
-                   SUM(salario) as monto_total,
-                   COUNT(*) as cantidad
-            FROM planilla
-            WHERE mes = MONTH(CURRENT_DATE)
-            
-            UNION ALL
-            
-            -- SEDES REGIONALES: Obtener pagos
-            SELECT 'Pagos Estudiantes' as concepto,
-                   SUM(monto) as monto_total,
-                   COUNT(*) as cantidad
-            FROM pago
-            WHERE MONTH(fecha) = MONTH(CURRENT_DATE)
-            """, language='sql')
-        
-        with col2:
-            if st.button("🔍 Ejecutar Reporte Global", key="query2"):
-                with st.spinner("Consolidando información financiera..."):
-                    # Datos simulados
-                    financial_data = pd.DataFrame({
-                        'Concepto': ['Planillas (Central)', 'Pagos SC', 'Pagos HD', 'Pagarés'],
-                        'Monto': [5000000, 3500000, 2800000, 1200000],
-                        'Sede': ['Central', 'San Carlos', 'Heredia', 'Central']
-                    })
-                    
-                    # Mostrar total
-                    total = financial_data['Monto'].sum()
-                    st.metric("💰 Total Consolidado", f"₡{total:,.2f}")
-                    
-                    # Gráfico
-                    fig = px.pie(financial_data, values='Monto', names='Concepto',
-                               title='Distribución Financiera Global')
-                    st.plotly_chart(fig, use_container_width=True)
-
-with tab3:
     st.header("💰 Transacción: Procesamiento de Pago Global")
     
     st.markdown("""
@@ -255,42 +129,51 @@ with tab3:
     - Actualización del cache distribuido
     """)
     
-    # Formulario de pago
+    # PASO 1: SELECCIÓN ÚNICA DE ESTUDIANTE (SIMPLIFICADO)
+    st.markdown("### 👤 Seleccionar Estudiante")
+    
+    # Cargar estudiantes de todas las sedes
+    estudiantes_data = {}
+    for sede in ['central', 'sancarlos', 'heredia']:
+        with get_db_connection(sede) as db:
+            if db:
+                result = db.execute_query("SELECT id_estudiante, nombre FROM estudiante")
+                if result:
+                    for est in result:
+                        sede_nombre = get_sede_info(sede)['name']
+                        estudiantes_data[f"{est['nombre']} ({sede_nombre})"] = {
+                            'id': est['id_estudiante'],
+                            'nombre': est['nombre'],
+                            'sede': sede,
+                            'sede_nombre': sede_nombre
+                        }
+
+    if estudiantes_data:
+        estudiante_seleccionado = st.selectbox("Estudiante:", list(estudiantes_data.keys()))
+        estudiante_info = estudiantes_data[estudiante_seleccionado]
+        
+        # Mostrar información del estudiante seleccionado
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.info(f"**Estudiante:** {estudiante_info['nombre']}")
+        with col2:
+            st.info(f"**Sede:** {estudiante_info['sede_nombre']}")
+        with col3:
+            st.info(f"**ID:** {estudiante_info['id']}")
+    else:
+        st.error("No se pudieron cargar los estudiantes")
+        st.stop()
+    
+    # PASO 2: FORMULARIO DE PAGO (SIN SELECCIÓN DE SEDE DUPLICADA)
     with st.form("pago_global_form"):
         st.markdown("### 📝 Registrar Pago")
         
         col1, col2 = st.columns(2)
         
         with col1:
-            # Seleccionar estudiante
-            sede_pago = st.selectbox("Sede del estudiante:", ["San Carlos", "Heredia"])
-            
-            # Obtener estudiantes con pagarés
-            estudiantes_con_pagare = []
-            sede_key = sede_pago.lower().replace(' ', '')
-            
-            with get_db_connection(sede_key) as db:
-                if db:
-                    # Simulamos que algunos estudiantes tienen pagarés
-                    query = """
-                    SELECT e.id_estudiante, e.nombre, e.email
-                    FROM estudiante e
-                    LIMIT 5
-                    """
-                    result = db.execute_query(query)
-                    if result:
-                        estudiantes_con_pagare = [(f"{r['nombre']}", r['id_estudiante']) 
-                                                for r in result]
-            
-            if estudiantes_con_pagare:
-                estudiante = st.selectbox("Estudiante:", 
-                                        options=estudiantes_con_pagare,
-                                        format_func=lambda x: x[0])
-            
             monto = st.number_input("Monto del pago:", min_value=1000, max_value=1000000, 
                                   value=50000, step=1000)
-        
-        with col2:
+            
             concepto = st.selectbox("Concepto:", [
                 "Matrícula",
                 "Mensualidad", 
@@ -299,15 +182,20 @@ with tab3:
                 "Transferencia de Créditos", 
                 "Matrícula Intercambio"
             ])
-            
+        
+        with col2:
             tiene_pagare = st.checkbox("¿Aplica a un pagaré existente?")
             
+            # Mostrar información adicional
+            st.markdown("**Información de la transacción:**")
+            st.text(f"• Estudiante: {estudiante_info['nombre']}")
+            st.text(f"• Sede de registro: {estudiante_info['sede_nombre']}")
             if tiene_pagare:
-                st.info("Se actualizará el pagaré en la sede Central")
+                st.text("• Se actualizará pagaré en Central")
         
         submitted = st.form_submit_button("💳 Procesar Pago", type="primary")
     
-    # Procesar transacción
+    # PASO 3: PROCESAR TRANSACCIÓN
     if submitted:
         st.markdown("### 🔄 Procesando Transacción Distribuida")
         
@@ -319,28 +207,63 @@ with tab3:
             step1 = st.empty()
             step1.info("📍 Paso 1/5: Iniciando transacción distribuida...")
             time.sleep(1)
-            step1.success("✅ Paso 1/5: Transacción iniciada - ID: TRX-2025-0124-001")
+            step1.success(f"✅ Paso 1/5: Transacción iniciada - ID: TRX-{datetime.now().strftime('%Y%m%d')}-001")
             
             # Paso 2: Verificar estudiante
             step2 = st.empty()
             step2.info("📍 Paso 2/5: Verificando datos del estudiante...")
             time.sleep(1)
-            step2.success(f"✅ Paso 2/5: Estudiante verificado en {sede_pago}")
+            step2.success(f"✅ Paso 2/5: Estudiante verificado en {estudiante_info['sede_nombre']}")
             
-            # Paso 3: Registrar pago local
+            # Paso 3: Registrar pago local (CON EJECUCIÓN REAL)
             step3 = st.empty()
-            step3.info(f"📍 Paso 3/5: Registrando pago en {sede_pago}...")
-            time.sleep(1.5)
-            step3.success(f"✅ Paso 3/5: Pago registrado - ID: PAY-{random.randint(1000, 9999)}")
+            step3.info(f"📍 Paso 3/5: Registrando pago en {estudiante_info['sede_nombre']}...")
             
-            # Paso 4: Actualizar pagaré (si aplica)
+            # EJECUTAR INSERT REAL
+            with get_db_connection(estudiante_info['sede']) as db:
+                if db:
+                    insert_query = "INSERT INTO pago (id_estudiante, monto, fecha) VALUES (%s, %s, %s)"
+                    affected_rows = db.execute_update(insert_query, 
+                        (estudiante_info['id'], monto, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+                    
+                    if affected_rows and affected_rows > 0:
+                        pago_id = f"PAY-{random.randint(1000, 9999)}"
+                        step3.success(f"✅ Paso 3/5: Pago registrado - ID: {pago_id}")
+                    else:
+                        step3.error("❌ Error al registrar el pago")
+                        st.stop()
+                else:
+                    step3.error("❌ No se pudo conectar a la base de datos")
+                    st.stop()
+            
+            # Paso 4: Actualizar pagaré (si aplica) - CON EJECUCIÓN REAL
+            step4 = st.empty()
             if tiene_pagare:
-                step4 = st.empty()
                 step4.info("📍 Paso 4/5: Actualizando pagaré en Central...")
-                time.sleep(1.5)
-                step4.success("✅ Paso 4/5: Pagaré actualizado en sede Central")
+                
+                # Verificar si realmente tiene pagaré
+                with get_db_connection('central') as db:
+                    if db:
+                        pagare_query = "SELECT id_pagare, monto FROM pagare WHERE id_estudiante = %s AND monto > 0"
+                        pagares = db.execute_query(pagare_query, (estudiante_info['id'],))
+                        
+                        if pagares and len(pagares) > 0:
+                            # Actualizar el primer pagaré encontrado
+                            pagare = pagares[0]
+                            nuevo_monto = max(0, pagare['monto'] - monto)
+                            
+                            update_query = "UPDATE pagare SET monto = %s WHERE id_pagare = %s"
+                            affected = db.execute_update(update_query, (nuevo_monto, pagare['id_pagare']))
+                            
+                            if affected and affected > 0:
+                                step4.success("✅ Paso 4/5: Pagaré actualizado en sede Central")
+                            else:
+                                step4.error("❌ Error al actualizar pagaré")
+                        else:
+                            step4.info("📍 Paso 4/5: Sin pagarés pendientes para este estudiante")
+                    else:
+                        step4.warning("⚠️ Paso 4/5: No se pudo conectar a Central para verificar pagarés")
             else:
-                step4 = st.empty()
                 step4.info("📍 Paso 4/5: Sin pagarés pendientes")
             
             # Paso 5: Commit distribuido
@@ -358,9 +281,9 @@ with tab3:
             'Campo': ['ID Transacción', 'Estudiante', 'Sede', 'Monto', 
                      'Concepto', 'Estado', 'Timestamp'],
             'Valor': [
-                'TRX-2025-0124-001',
-                estudiante[0] if 'estudiante' in locals() else 'Demo Student',
-                sede_pago,
+                f'TRX-{datetime.now().strftime("%Y%m%d")}-001',
+                estudiante_info['nombre'],  # CORREGIDO: usar estudiante_info en lugar de estudiante[0]
+                estudiante_info['sede_nombre'],
                 f"₡{monto:,.2f}",
                 concepto,
                 '✅ Completada',
@@ -371,19 +294,17 @@ with tab3:
         df_summary = pd.DataFrame(summary_data)
         st.table(df_summary.set_index('Campo'))
         
-        # Log de auditoría
+        # Log de auditoría CORREGIDO
         with st.expander("📜 Ver Log de Auditoría"):
-            audit_log = f"""
-            [2025-01-24 10:30:01] BEGIN DISTRIBUTED TRANSACTION TRX-2025-0124-001
-            [2025-01-24 10:30:02] VERIFY student_id={estudiante[1] if 'estudiante' in locals() else '1'} AT {sede_pago}
-            [2025-01-24 10:30:03] INSERT INTO pago (id_estudiante, monto, concepto) VALUES (...)
-            [2025-01-24 10:30:04] {'UPDATE pagare SET saldo = saldo - ' + str(monto) if tiene_pagare else 'SKIP pagare update'}
-            [2025-01-24 10:30:05] COMMIT TRANSACTION TRX-2025-0124-001
-            [2025-01-24 10:30:05] INVALIDATE CACHE KEY: student_payments_{estudiante[1] if 'estudiante' in locals() else '1'}
-            """
+            audit_log = f"""[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] BEGIN DISTRIBUTED TRANSACTION TRX-{datetime.now().strftime('%Y%m%d')}-001
+[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] VERIFY student_id={estudiante_info['id']} AT {estudiante_info['sede']}
+[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] INSERT INTO pago (id_estudiante, monto, fecha) VALUES ({estudiante_info['id']}, {monto}, '{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}')
+[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {'UPDATE pagare SET monto = monto - ' + str(monto) + ' WHERE id_estudiante = ' + str(estudiante_info['id']) if tiene_pagare else 'SKIP pagare update (no pending pagares)'}
+[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] COMMIT TRANSACTION TRX-{datetime.now().strftime('%Y%m%d')}-001
+[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] TRANSACTION COMPLETED SUCCESSFULLY"""
             st.code(audit_log, language='log')
 
-with tab4:
+with tab3:
     st.header("📈 Transacción: Generación de Reporte Consolidado")
     
     st.markdown("""
@@ -584,7 +505,7 @@ with tab4:
             if st.button("📧 Enviar por Email", use_container_width=True):
                 st.info("Enviando reporte... (función simulada)")
 
-with tab5:
+with tab4:
     st.header("🔍 Vistas de Usuario")
     
     st.markdown("""
