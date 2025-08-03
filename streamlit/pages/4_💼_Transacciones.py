@@ -436,8 +436,11 @@ with tab3:
         # Cargar carreras de la sede
         with get_db_connection(sede_matricula) as db:
             if db:
-                carrera_query = "SELECT id_carrera, nombre FROM carrera"
-                carreras_result = db.execute_query(carrera_query)
+                sede_ids = {"central": 1, "sancarlos": 2, "heredia": 3}
+                id_sede_actual = sede_ids[sede_matricula]
+
+                carrera_query = "SELECT id_carrera, nombre FROM carrera WHERE id_sede = %s"
+                carreras_result = db.execute_query(carrera_query, (id_sede_actual,))
                 
                 if carreras_result:
                     carreras_options = {carrera['nombre']: carrera['id_carrera'] for carrera in carreras_result}
