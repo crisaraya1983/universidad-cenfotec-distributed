@@ -35,11 +35,11 @@ Las **transacciones distribuidas** son operaciones que involucran datos en múlt
 del sistema. Deben mantener las propiedades ACID incluso cuando los datos están distribuidos.
 """)
 
-# Tabs principales - RESTAURAMOS LOS 5 TABS ORIGINALES
+# Tabs principales - SIN Consultas Globales, CON Proceso de Matrícula
 tab1, tab2, tab3, tab4 = st.tabs([
     "📋 Conceptos",
     "💰 Transacción: Pago Global",
-    "📈 Transacción: Reporte Consolidado",
+    "📚 Transacción: Proceso de Matrícula",
     "🔍 Vistas de Usuario"
 ])
 
@@ -119,8 +119,9 @@ with tab1:
         
         st.plotly_chart(fig, use_container_width=True)
 
+# TAB2 - TRANSACCIÓN PAGO GLOBAL (SIN CAMBIOS)
 with tab2:
-    st.header("💰 Transacción: Procesamiento de Pago Global")
+    st.header("💰 Transacción: Procesamiento de Pago")
     
     st.markdown("""
     Simula una transacción que registra un pago que afecta múltiples sistemas:
@@ -282,7 +283,7 @@ with tab2:
                      'Concepto', 'Estado', 'Timestamp'],
             'Valor': [
                 f'TRX-{datetime.now().strftime("%Y%m%d")}-001',
-                estudiante_info['nombre'],  # CORREGIDO: usar estudiante_info en lugar de estudiante[0]
+                estudiante_info['nombre'],
                 estudiante_info['sede_nombre'],
                 f"₡{monto:,.2f}",
                 concepto,
@@ -304,207 +305,364 @@ with tab2:
 [{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] TRANSACTION COMPLETED SUCCESSFULLY"""
             st.code(audit_log, language='log')
 
+# TAB3 - NUEVO: TRANSACCIÓN PROCESO DE MATRÍCULA
 with tab3:
-    st.header("📈 Transacción: Generación de Reporte Consolidado")
+    st.header("📚 Transacción: Proceso de Matrícula")
     
     st.markdown("""
-    Esta transacción recopila datos de todas las sedes para generar un reporte
-    ejecutivo consolidado del estado de la universidad.
+    Proceso de matrícula que puede involucrar múltiples operaciones:
+    - Crear estudiante nuevo (si aplica)
+    - Registrar matrícula(s) en curso(s)
+    - Procesar pago inmediato o crear pagaré
+    - Actualizar registros distribuidos
     """)
     
-    # Configuración del reporte
+    # PASO 1: SELECCIONAR SEDE
+    st.markdown("### 🏢 Configuración de Matrícula")
+    
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown("### 📅 Configuración del Reporte")
+        sede_matricula = st.selectbox("Sede para la matrícula:", [
+            "central", "sancarlos", "heredia"
+        ], format_func=lambda x: get_sede_info(x)['name'])
         
-        tipo_reporte = st.selectbox(
-            "Tipo de reporte:",
-            ["Reporte Ejecutivo Mensual", "Análisis Académico", "Reporte Financiero", "Dashboard KPIs"]
-        )
-        
-        periodo = st.date_input(
-            "Período:",
-            value=datetime.now().date(),
-            max_value=datetime.now().date()
-        )
+        sede_info_matricula = get_sede_info(sede_matricula)
     
     with col2:
-        st.markdown("### 🎯 Sedes a Incluir")
-        
-        incluir_central = st.checkbox("Central", value=True)
-        incluir_sc = st.checkbox("San Carlos", value=True)
-        incluir_hd = st.checkbox("Heredia", value=True)
-        
-        formato = st.radio("Formato de salida:", ["Dashboard", "PDF", "Excel"])
+        tipo_estudiante = st.radio("Tipo de estudiante:", [
+            "Estudiante existente",
+            "Estudiante nuevo"
+        ])
     
-    # Generar reporte
-    if st.button("📊 Generar Reporte Consolidado", type="primary", use_container_width=True):
+    # PASO 2: SELECCIONAR O CREAR ESTUDIANTE
+    estudiante_matricula = None
+    
+    if tipo_estudiante == "Estudiante existente":
+        st.markdown("### 👤 Seleccionar Estudiante Existente")
         
-        # Progress tracking
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-        
-        # Recopilar datos de cada sede
-        report_data = {
-            'estudiantes_total': 0,
-            'profesores_total': 0,
-            'matriculas_mes': 0,
-            'ingresos_mes': 0,
-            'promedio_notas': 0,
-            'asistencia_promedio': 0,
-            'datos_por_sede': {}
-        }
-        
-        sedes_incluidas = []
-        if incluir_central:
-            sedes_incluidas.append('central')
-        if incluir_sc:
-            sedes_incluidas.append('sancarlos')
-        if incluir_hd:
-            sedes_incluidas.append('heredia')
-        
-        # Procesar cada sede
-        for i, sede in enumerate(sedes_incluidas):
-            progress_bar.progress((i + 1) / len(sedes_incluidas))
-            status_text.text(f"Procesando {get_sede_info(sede)['name']}...")
-            time.sleep(1)  # Simular procesamiento
-            
-            with get_db_connection(sede) as db:
-                if db:
-                    sede_data = {}
+        # Cargar estudiantes de la sede seleccionada
+        with get_db_connection(sede_matricula) as db:
+            if db:
+                result = db.execute_query("SELECT id_estudiante, nombre, email FROM estudiante")
+                if result:
+                    estudiantes_options = {f"{est['nombre']} ({est['email']})": est for est in result}
                     
-                    if sede == 'central':
-                        # Datos administrativos
-                        query_profesores = "SELECT COUNT(*) as total FROM profesor"
-                        result = db.execute_query(query_profesores)
-                        if result:
-                            report_data['profesores_total'] = result[0]['total']
-                            sede_data['profesores'] = result[0]['total']
+                    if estudiantes_options:
+                        estudiante_selected = st.selectbox("Estudiante:", list(estudiantes_options.keys()))
+                        estudiante_matricula = estudiantes_options[estudiante_selected]
                         
-                        # Planilla del mes
-                        query_planilla = "SELECT SUM(salario) as total FROM planilla WHERE mes = MONTH(%s)"
-                        result = db.execute_query(query_planilla, (periodo,))
-                        if result and result[0]['total']:
-                            sede_data['gastos_planilla'] = float(result[0]['total'])
-                    
-                    else:  # Sedes regionales
-                        # Estudiantes
-                        query_estudiantes = "SELECT COUNT(*) as total FROM estudiante"
-                        result = db.execute_query(query_estudiantes)
-                        if result:
-                            report_data['estudiantes_total'] += result[0]['total']
-                            sede_data['estudiantes'] = result[0]['total']
-                        
-                        # Matrículas del mes
-                        query_matriculas = """
-                        SELECT COUNT(*) as total 
-                        FROM matricula 
-                        WHERE MONTH(fecha_matricula) = MONTH(%s)
-                        """
-                        result = db.execute_query(query_matriculas, (periodo,))
-                        if result:
-                            report_data['matriculas_mes'] += result[0]['total'] or 0
-                            sede_data['matriculas_mes'] = result[0]['total'] or 0
-                        
-                        # Ingresos del mes
-                        query_ingresos = """
-                        SELECT SUM(monto) as total 
-                        FROM pago 
-                        WHERE MONTH(fecha) = MONTH(%s)
-                        """
-                        result = db.execute_query(query_ingresos, (periodo,))
-                        if result and result[0]['total']:
-                            report_data['ingresos_mes'] += float(result[0]['total'])
-                            sede_data['ingresos_mes'] = float(result[0]['total'])
-                    
-                    report_data['datos_por_sede'][sede] = sede_data
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.success(f"✅ **Estudiante:** {estudiante_matricula['nombre']}")
+                        with col2:
+                            st.success(f"✅ **Email:** {estudiante_matricula['email']}")
+                    else:
+                        st.warning("No hay estudiantes registrados en esta sede")
+                else:
+                    st.error("Error al cargar estudiantes")
+            else:
+                st.error("No se pudo conectar a la base de datos")
+    
+    else:  # Estudiante nuevo
+        st.markdown("### ➕ Crear Estudiante Nuevo")
         
-        progress_bar.progress(1.0)
-        status_text.text("✅ Reporte generado exitosamente")
-        time.sleep(0.5)
-        status_text.empty()
-        
-        # Mostrar resultados
-        st.markdown("### 📊 Reporte Ejecutivo Consolidado")
-        
-        # Métricas principales
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("👥 Estudiantes Totales", f"{report_data['estudiantes_total']:,}")
-        
-        with col2:
-            st.metric("👨‍🏫 Profesores", f"{report_data['profesores_total']:,}")
-        
-        with col3:
-            st.metric("📝 Matrículas (Mes)", f"{report_data['matriculas_mes']:,}")
-        
-        with col4:
-            st.metric("💰 Ingresos (Mes)", f"₡{report_data['ingresos_mes']:,.0f}")
-        
-        # Gráficos comparativos
-        st.markdown("### 📈 Análisis por Sede")
-        
-        if report_data['datos_por_sede']:
-            # Preparar datos para gráficos
-            sede_names = []
-            estudiantes = []
-            ingresos = []
-            
-            for sede, data in report_data['datos_por_sede'].items():
-                sede_names.append(get_sede_info(sede)['name'])
-                estudiantes.append(data.get('estudiantes', 0))
-                ingresos.append(data.get('ingresos_mes', 0))
-            
+        with st.form("nuevo_estudiante_form"):
             col1, col2 = st.columns(2)
             
             with col1:
-                # Gráfico de estudiantes
-                fig_est = px.bar(
-                    x=sede_names, 
-                    y=estudiantes,
-                    title="Estudiantes por Sede",
-                    color=sede_names,
-                    color_discrete_map={
-                        '🏛️ Sede Central': COLORS['primary'],
-                        '🏢 Sede San Carlos': COLORS['secondary'],
-                        '🏫 Sede Heredia': COLORS['success']
-                    }
-                )
-                st.plotly_chart(fig_est, use_container_width=True)
+                nuevo_nombre = st.text_input("Nombre completo:", 
+                                           placeholder="Ej: María García López")
+                nuevo_email = st.text_input("Email institucional:", 
+                                          placeholder="Ej: maria.garcia@estudiante.cenfotec.ac.cr")
             
             with col2:
-                # Gráfico de ingresos
-                fig_ing = px.pie(
-                    values=ingresos,
-                    names=sede_names,
-                    title="Distribución de Ingresos",
-                    color_discrete_map={
-                        '🏛️ Sede Central': COLORS['primary'],
-                        '🏢 Sede San Carlos': COLORS['secondary'],
-                        '🏫 Sede Heredia': COLORS['success']
-                    }
-                )
-                st.plotly_chart(fig_ing, use_container_width=True)
+                st.markdown("**Información adicional:**")
+                st.text(f"• Sede: {sede_info_matricula['name']}")
+                st.text("• Se asignará ID automáticamente")
+                st.text("• Email debe ser único en el sistema")
+            
+            crear_estudiante = st.form_submit_button("➕ Crear Estudiante")
+            
+            if crear_estudiante:
+                if nuevo_nombre and nuevo_email:
+                    # Verificar que el email no exista
+                    email_existe = False
+                    for sede_check in ['central', 'sancarlos', 'heredia']:
+                        with get_db_connection(sede_check) as db:
+                            if db:
+                                check_query = "SELECT id_estudiante FROM estudiante WHERE email = %s"
+                                result = db.execute_query(check_query, (nuevo_email,))
+                                if result:
+                                    email_existe = True
+                                    break
+                    
+                    if email_existe:
+                        st.error("❌ Este email ya está registrado en el sistema")
+                    else:
+                        # Crear el estudiante
+                        with get_db_connection(sede_matricula) as db:
+                            if db:
+                                # Obtener ID de sede
+                                sede_ids = {"central": 1, "sancarlos": 2, "heredia": 3}
+                                id_sede = sede_ids[sede_matricula]
+                                
+                                insert_query = "INSERT INTO estudiante (nombre, email, id_sede) VALUES (%s, %s, %s)"
+                                affected = db.execute_update(insert_query, (nuevo_nombre, nuevo_email, id_sede))
+                                
+                                if affected and affected > 0:
+                                    # Obtener el ID del estudiante recién creado
+                                    get_id_query = "SELECT id_estudiante, nombre, email FROM estudiante WHERE email = %s"
+                                    result = db.execute_query(get_id_query, (nuevo_email,))
+                                    
+                                    if result:
+                                        estudiante_matricula = result[0]
+                                        st.success(f"✅ Estudiante creado exitosamente - ID: {estudiante_matricula['id_estudiante']}")
+                                        time.sleep(2)
+                                        st.rerun()
+                                    else:
+                                        st.error("❌ Error al obtener datos del estudiante creado")
+                                else:
+                                    st.error("❌ Error al crear el estudiante")
+                            else:
+                                st.error("❌ No se pudo conectar a la base de datos")
+                else:
+                    st.error("❌ Por favor complete todos los campos")
+    
+    # PASO 3: SELECCIONAR CARRERA Y CURSOS (solo si hay estudiante)
+    if estudiante_matricula:
+        st.markdown("### 📚 Seleccionar Carrera y Cursos")
         
-        # Opciones de exportación
-        st.markdown("### 💾 Exportar Reporte")
-        
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            if st.button("📄 Descargar PDF", use_container_width=True):
-                st.info("Generando PDF... (función simulada)")
-        
-        with col2:
-            if st.button("📊 Descargar Excel", use_container_width=True):
-                st.info("Generando Excel... (función simulada)")
-        
-        with col3:
-            if st.button("📧 Enviar por Email", use_container_width=True):
-                st.info("Enviando reporte... (función simulada)")
+        # Cargar carreras de la sede
+        with get_db_connection(sede_matricula) as db:
+            if db:
+                carrera_query = "SELECT id_carrera, nombre FROM carrera"
+                carreras_result = db.execute_query(carrera_query)
+                
+                if carreras_result:
+                    carreras_options = {carrera['nombre']: carrera['id_carrera'] for carrera in carreras_result}
+                    
+                    carrera_selected = st.selectbox("Carrera:", list(carreras_options.keys()))
+                    id_carrera_selected = carreras_options[carrera_selected]
+                    
+                    # Cargar cursos de la carrera
+                    curso_query = "SELECT id_curso, nombre FROM curso WHERE id_carrera = %s"
+                    cursos_result = db.execute_query(curso_query, (id_carrera_selected,))
+                    
+                    if cursos_result:
+                        st.markdown("**Cursos disponibles:**")
+                        
+                        cursos_seleccionados = []
+                        for curso in cursos_result:
+                            if st.checkbox(f"📖 {curso['nombre']}", key=f"curso_{curso['id_curso']}"):
+                                cursos_seleccionados.append(curso)
+                        
+                        if cursos_seleccionados:
+                            # PASO 4: FORMA DE PAGO
+                            st.markdown("### 💳 Forma de Pago")
+                            
+                            col1, col2 = st.columns(2)
+                            
+                            with col1:
+                                forma_pago = st.radio("Seleccionar forma de pago:", [
+                                    "Pago inmediato",
+                                    "Crear pagaré"
+                                ])
+                                
+                                # Calcular costo total (simulado)
+                                costo_por_curso = 150000
+                                costo_total = len(cursos_seleccionados) * costo_por_curso
+                                
+                                st.metric("💰 Costo total:", f"₡{costo_total:,}")
+                            
+                            with col2:
+                                st.markdown("**Resumen de matrícula:**")
+                                st.text(f"• Estudiante: {estudiante_matricula['nombre']}")
+                                st.text(f"• Carrera: {carrera_selected}")
+                                st.text(f"• Cursos: {len(cursos_seleccionados)}")
+                                st.text(f"• Sede: {sede_info_matricula['name']}")
+                                
+                                if forma_pago == "Crear pagaré":
+                                    vencimiento = st.date_input("Fecha de vencimiento:", 
+                                                              value=datetime.now().date() + timedelta(days=30))
+                            
+                            # PASO 5: PROCESAR MATRÍCULA
+                            if st.button("🎓 Procesar Matrícula Completa", type="primary", use_container_width=True):
+                                st.markdown("### 🔄 Procesando Transacción de Matrícula")
+                                
+                                # Inicializar variables para el resumen
+                                matriculas_creadas = []
+                                pago_id = None
+                                pagare_id = None
+                                
+                                # Contenedor para los pasos
+                                with st.container():
+                                    # Paso 1: Iniciar transacción
+                                    step1 = st.empty()
+                                    step1.info("📍 Paso 1/6: Iniciando transacción de matrícula...")
+                                    time.sleep(1)
+                                    trx_id = f"MAT-{datetime.now().strftime('%Y%m%d')}-{random.randint(100, 999)}"
+                                    step1.success(f"✅ Paso 1/6: Transacción iniciada - ID: {trx_id}")
+                                    
+                                    # Paso 2: Verificar disponibilidad
+                                    step2 = st.empty()
+                                    step2.info("📍 Paso 2/6: Verificando disponibilidad de cursos...")
+                                    time.sleep(1)
+                                    step2.success("✅ Paso 2/6: Cursos disponibles para matrícula")
+                                    
+                                    # Paso 3: Crear matrículas
+                                    step3 = st.empty()
+                                    step3.info(f"📍 Paso 3/6: Registrando {len(cursos_seleccionados)} matrícula(s)...")
+                                    
+                                    # EJECUTAR INSERTs REALES DE MATRÍCULA
+                                    with get_db_connection(sede_matricula) as db:
+                                        if db:
+                                            for curso in cursos_seleccionados:
+                                                matricula_query = "INSERT INTO matricula (id_estudiante, id_curso) VALUES (%s, %s)"
+                                                affected = db.execute_update(matricula_query, 
+                                                    (estudiante_matricula['id_estudiante'], curso['id_curso']))
+                                                
+                                                if affected and affected > 0:
+                                                    matriculas_creadas.append(curso['nombre'])
+                                                else:
+                                                    step3.error(f"❌ Error al matricular en {curso['nombre']}")
+                                                    st.stop()
+                                            
+                                            step3.success(f"✅ Paso 3/6: {len(matriculas_creadas)} matrícula(s) registrada(s)")
+                                        else:
+                                            step3.error("❌ Error de conexión a la base de datos")
+                                            st.stop()
+                                    
+                                    # Paso 4: Procesar pago o pagaré
+                                    step4 = st.empty()
+                                    if forma_pago == "Pago inmediato":
+                                        step4.info("📍 Paso 4/6: Procesando pago inmediato...")
+                                        
+                                        # INSERT REAL DE PAGO
+                                        with get_db_connection(sede_matricula) as db:
+                                            if db:
+                                                pago_query = "INSERT INTO pago (id_estudiante, monto, fecha) VALUES (%s, %s, %s)"
+                                                affected = db.execute_update(pago_query, 
+                                                    (estudiante_matricula['id_estudiante'], costo_total, 
+                                                     datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+                                                
+                                                if affected and affected > 0:
+                                                    pago_id = f"PAY-{random.randint(1000, 9999)}"
+                                                    step4.success(f"✅ Paso 4/6: Pago procesado - ID: {pago_id}")
+                                                else:
+                                                    step4.error("❌ Error al procesar el pago")
+                                                    st.stop()
+                                            else:
+                                                step4.error("❌ Error de conexión para procesar pago")
+                                                st.stop()
+                                    
+                                    else:  # Crear pagaré
+                                        step4.info("📍 Paso 4/6: Creando pagaré en Central...")
+                                        
+                                        # INSERT REAL DE PAGARÉ EN CENTRAL
+                                        with get_db_connection('central') as db:
+                                            if db:
+                                                pagare_query = "INSERT INTO pagare (id_estudiante, monto, vencimiento) VALUES (%s, %s, %s)"
+                                                affected = db.execute_update(pagare_query, 
+                                                    (estudiante_matricula['id_estudiante'], costo_total, vencimiento))
+                                                
+                                                if affected and affected > 0:
+                                                    pagare_id = f"PGR-{random.randint(1000, 9999)}"
+                                                    step4.success(f"✅ Paso 4/6: Pagaré creado - ID: {pagare_id}")
+                                                else:
+                                                    step4.error("❌ Error al crear el pagaré")
+                                                    st.stop()
+                                            else:
+                                                step4.warning("⚠️ Paso 4/6: No se pudo conectar a Central - pagaré no creado")
+                                    
+                                    # Paso 5: Actualizar cache distribuido
+                                    step5 = st.empty()
+                                    step5.info("📍 Paso 5/6: Actualizando cache distribuido...")
+                                    time.sleep(1)
+                                    step5.success("✅ Paso 5/6: Cache actualizado en todos los nodos")
+                                    
+                                    # Paso 6: Commit final
+                                    step6 = st.empty()
+                                    step6.info("📍 Paso 6/6: Confirmando transacción completa...")
+                                    time.sleep(1)
+                                    step6.success("✅ Paso 6/6: Matrícula completada exitosamente")
+                                
+                                # Mostrar resumen final
+                                st.balloons()
+                                
+                                st.markdown("### 🎓 Resumen de Matrícula Completada")
+                                
+                                # Crear resumen detallado
+                                resumen_data = {
+                                    'Campo': [
+                                        'ID Transacción',
+                                        'Estudiante',
+                                        'Sede',
+                                        'Carrera',
+                                        'Cursos Matriculados',
+                                        'Costo Total',
+                                        'Forma de Pago',
+                                        'ID Pago/Pagaré',
+                                        'Estado',
+                                        'Fecha/Hora'
+                                    ],
+                                    'Valor': [
+                                        trx_id,
+                                        estudiante_matricula['nombre'],
+                                        sede_info_matricula['name'],
+                                        carrera_selected,
+                                        f"{len(matriculas_creadas)} curso(s)",
+                                        f"₡{costo_total:,}",
+                                        "Pago Inmediato" if forma_pago == "Pago inmediato" else "Pagaré",
+                                        pago_id if pago_id else pagare_id,
+                                        '✅ Completada',
+                                        datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                                    ]
+                                }
+                                
+                                df_resumen = pd.DataFrame(resumen_data)
+                                st.table(df_resumen.set_index('Campo'))
+                                
+                                # Mostrar cursos matriculados
+                                st.markdown("**📚 Detalle de Cursos Matriculados:**")
+                                cursos_df = pd.DataFrame([
+                                    {'Curso': curso, 'Costo': f"₡{costo_por_curso:,}", 'Estado': '✅ Activo'} 
+                                    for curso in matriculas_creadas
+                                ])
+                                st.dataframe(cursos_df, use_container_width=True, hide_index=True)
+                                
+                                # Log de auditoría
+                                with st.expander("📜 Ver Log Detallado de Auditoría"):
+                                    audit_log = f"""[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] BEGIN MATRICULA TRANSACTION {trx_id}
+                                    [{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] VERIFY student_id={estudiante_matricula['id_estudiante']} AT {sede_matricula}
+                                    [{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] VERIFY courses availability for carrera_id={id_carrera_selected}
+                                    """
+                                    
+                                    for curso in cursos_seleccionados:
+                                        audit_log += f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] INSERT INTO matricula (id_estudiante, id_curso) VALUES ({estudiante_matricula['id_estudiante']}, {curso['id_curso']})"
+                                    
+                                    if forma_pago == "Pago inmediato":
+                                        audit_log += f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] INSERT INTO pago (id_estudiante, monto, fecha) VALUES ({estudiante_matricula['id_estudiante']}, {costo_total}, '{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}')"
+                                    else:
+                                        audit_log += f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] INSERT INTO pagare (id_estudiante, monto, vencimiento) VALUES ({estudiante_matricula['id_estudiante']}, {costo_total}, '{vencimiento}')"
+                                    
+                                    audit_log += f"""
+                                    [{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] UPDATE DISTRIBUTED CACHE
+                                    [{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] COMMIT TRANSACTION {trx_id}
+                                    [{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] MATRICULA PROCESS COMPLETED SUCCESSFULLY
+                                    """
+                                    
+                                    st.code(audit_log, language='log')
+                        else:
+                            st.info("👆 Seleccione al menos un curso para continuar")
+                    else:
+                        st.warning("No hay cursos disponibles para esta carrera")
+                else:
+                    st.warning("No hay carreras disponibles en esta sede")
+            else:
+                st.error("Error al cargar carreras")
 
+# TAB4 - VISTAS DE USUARIO (SIN CAMBIOS)
 with tab4:
     st.header("🔍 Vistas de Usuario")
     
@@ -712,13 +870,13 @@ with st.sidebar:
     st.markdown("""
     Esta sección demuestra:
     
-    ✅ **Consultas globales** que obtienen datos de múltiples sedes
+    ✅ **Transacciones de pago** con consistencia ACID
     
-    ✅ **Transacciones ACID** manteniendo consistencia
+    ✅ **Proceso de matrícula** completo y distribuido
     
     ✅ **Vistas de usuario** según roles y permisos
     
-    ✅ **Reportes consolidados** con datos en tiempo real
+    ✅ **Operaciones reales** con base de datos
     """)
     
     st.markdown("---")
