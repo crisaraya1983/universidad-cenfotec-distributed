@@ -94,7 +94,6 @@ with tab1:
     </div>
     """, unsafe_allow_html=True)
     
-    # Para mostrar tu imagen cuando la subas:
     image_path = "images/arquitectura_sistema.png"
     if os.path.exists(image_path):
         st.image(image_path, caption="Arquitectura del Sistema Distribuido", use_column_width=True)
@@ -107,7 +106,6 @@ with tab1:
         3. La imagen se mostrará automáticamente aquí
         """)
     
-    # Explicación detallada
     col1, col2 = st.columns(2)
     
     with col1:
@@ -176,7 +174,7 @@ with tab2:
     er_diagram.node('Planilla', 'PLANILLA\n💼\nid_planilla (PK)\nid_profesor (FK)\nsalario\nmes', fillcolor='lightcoral')
     er_diagram.node('Pagare', 'PAGARE\n📄\nid_pagare (PK)\nid_estudiante (FK)\nmonto\nvencimiento', fillcolor='honeydew', style='filled')
     
-    # Relaciones con etiquetas más claras
+
     er_diagram.edge('Estudiante', 'Sede', label='pertenece_a', color='blue')
     er_diagram.edge('Profesor', 'Sede', label='trabaja_en', color='red')
     er_diagram.edge('Carrera', 'Sede', label='ofrecida_en', color='orange')
@@ -203,7 +201,6 @@ with tab3:
     **🔑 Responsabilidades:** Gestión administrativa y replicación master
     """)
     
-    # Solo información de tablas sin estadísticas
     col1, col2 = st.columns([3, 2])
     
     with col1:
@@ -232,7 +229,7 @@ with tab3:
         - Reportes ejecutivos
         """)
     
-    # Diagrama relacional específico de Central (CORREGIDO)
+    # Diagrama relacional específico de Central
     st.markdown("#### 🔗 Diagrama Relacional - Sede Central")
     
     central_diagram = graphviz.Digraph(comment='BD Central')
@@ -240,7 +237,7 @@ with tab3:
     central_diagram.attr(bgcolor='white')
     central_diagram.attr('node', shape='record', style='filled', fontname='Arial', fontsize='10')
     
-    # Tablas maestras (azul) - CORREGIDAS sin nodos undefined
+    # Tablas maestras (azul)
     central_diagram.node('sede_c', '{SEDE|id_sede (PK)\\lnombre\\ldireccion\\l}', fillcolor='lightblue')
     central_diagram.node('carrera_c', '{CARRERA|id_carrera (PK)\\lnombre\\lid_sede (FK)\\l}', fillcolor='lightblue')
     central_diagram.node('profesor_c', '{PROFESOR|id_profesor (PK)\\lnombre\\lemail\\lid_sede (FK)\\l}', fillcolor='lightblue')
@@ -352,7 +349,7 @@ with tab4:
             - Procesamiento de pagos
             """)
         
-        # Diagrama relacional Heredia (similar a San Carlos)
+        # Diagrama relacional Heredia
         st.markdown("#### 🔗 Diagrama Relacional - Heredia")
         
         hd_diagram = graphviz.Digraph(comment='BD Heredia')

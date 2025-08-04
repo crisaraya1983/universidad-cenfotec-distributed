@@ -652,6 +652,27 @@ class MasterSlaveReplication:
             logger.error(f"Error obteniendo estado detallado: {e}")
         
         return status
+    
+    def get_last_inserted_profesor_id(self) -> Optional[int]:
+        """
+        Obtiene el ID del último profesor insertado en Central
+        """
+        try:
+            with self.replication_conn.get_master_connection('read') as db:
+                if not db:
+                    return None
+                
+                query = "SELECT MAX(id_profesor) as last_id FROM profesor"
+                result = db.execute_query(query)
+                
+                if result and len(result) > 0 and result[0]['last_id']:
+                    return result[0]['last_id']
+                    
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error obteniendo último ID de profesor: {e}")
+            return None
 
 
 # ========================================
@@ -696,9 +717,10 @@ def execute_master_slave_replication(nombre_carrera: str, sede_destino: str, pro
     return success
 
 
-def execute_profesor_replication(nombre_profesor: str, email_profesor: str, sede_profesor: str, progress_bar=None, status_container=None) -> bool:
+def execute_profesor_replication(nombre_profesor: str, email_profesor: str, sede_profesor: str, salario: float = None, progress_bar=None, status_container=None) -> bool:
     """
     Función wrapper para ejecutar replicación de profesores desde Streamlit
+    Incluye funcionalidad para guardar salario en planilla de Central
     """
     sede_map = {"Central": 1, "San Carlos": 2, "Heredia": 3}
     id_sede = sede_map.get(sede_profesor, 1)
@@ -718,6 +740,7 @@ def execute_profesor_replication(nombre_profesor: str, email_profesor: str, sede
             with status_container:
                 st.info(message)
     
+    # Ejecutar la replicación normal del profesor
     success = replicator.replicate_profesor(
         nombre_profesor=nombre_profesor,
         email_profesor=email_profesor,
@@ -726,6 +749,38 @@ def execute_profesor_replication(nombre_profesor: str, email_profesor: str, sede
         status_callback=update_status
     )
     
+    # Si la replicación fue exitosa Y se proporcionó un salario, guardarlo en planilla
+    if success and salario is not None:
+        try:
+            if status_container:
+                with status_container:
+                    st.info("💰 Registrando salario en planilla de Central...")
+            
+            # Obtener el ID del profesor recién insertado
+            profesor_id = replicator.get_last_inserted_profesor_id()
+            
+            if profesor_id:
+                # Insertar en tabla planilla (solo en Central)
+                planilla_success = _insert_profesor_planilla(profesor_id, salario)
+                
+                if planilla_success:
+                    if status_container:
+                        with status_container:
+                            st.success(f"✅ Salario ₡{salario:,} registrado en planilla para profesor ID {profesor_id}")
+                else:
+                    if status_container:
+                        with status_container:
+                            st.warning("⚠️ Profesor replicado exitosamente, pero hubo un problema al registrar el salario en planilla")
+            else:
+                if status_container:
+                    with status_container:
+                        st.warning("⚠️ No se pudo obtener el ID del profesor para registrar en planilla")
+                        
+        except Exception as e:
+            if status_container:
+                with status_container:
+                    st.warning(f"⚠️ Profesor replicado exitosamente, pero error al registrar salario: {str(e)}")
+    
     if success:
         if status_container:
             with status_container:
@@ -733,3 +788,35 @@ def execute_profesor_replication(nombre_profesor: str, email_profesor: str, sede
                 st.info("🔍 Verificación realizada con usuario de replicación especializado")
     
     return success
+
+
+def _insert_profesor_planilla(profesor_id: int, salario: float) -> bool:
+    """
+    Inserta el salario del profesor en la tabla planilla de Central
+    """
+    try:
+        from datetime import datetime
+        from utils.db_connections import get_db_connection
+        
+        mes_actual = datetime.now().strftime("%Y-%m")
+        
+        with get_db_connection('central') as db:
+            if not db:
+                raise Exception("No se pudo conectar a la base de datos Central")
+            
+            query = """
+            INSERT INTO planilla (id_profesor, salario, mes) 
+            VALUES (%s, %s, %s)
+            """
+            
+            affected_rows = db.execute_update(query, (profesor_id, salario, mes_actual))
+            
+            if affected_rows and affected_rows > 0:
+                logger.info(f"💰 Salario registrado en planilla: Profesor ID {profesor_id}, Salario: ₡{salario:,}, Mes: {mes_actual}")
+                return True
+            else:
+                raise Exception("No se afectaron filas en la tabla planilla")
+                
+    except Exception as e:
+        logger.error(f"Error al insertar en planilla: {e}")
+        return False

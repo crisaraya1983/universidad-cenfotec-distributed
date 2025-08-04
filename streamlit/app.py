@@ -82,7 +82,7 @@ def show_connection_status():
     """
     st.subheader("🔌 Estado de Conexiones")
     
-    # Crear columnas para mostrar el estado (agregar una más para LB)
+    # Crear columnas para mostrar el estado
     cols = st.columns(len(DB_CONFIG) + 2)  # +2 para Redis y Load Balancer
     
     # Probar todas las conexiones
@@ -91,7 +91,7 @@ def show_connection_status():
         lb_status = test_load_balancer()
         nginx_info = get_nginx_status()
     
-    # Mostrar estado de cada sede MySQL (sin cambios)
+    # Mostrar estado de cada sede MySQL
     for idx, (sede, is_connected) in enumerate(status.items()):
         if sede != 'redis':
             with cols[idx]:
@@ -112,7 +112,7 @@ def show_connection_status():
             st.error("❌ Redis Cache")
             st.caption("Desconectado")
     
-    # Mostrar estado del Load Balancer (NUEVO)
+    # Mostrar estado del Load Balancer
     with cols[-1]:
         if lb_status:
             st.success("✅ Load Balancer")
@@ -215,8 +215,6 @@ def show_system_overview():
         with get_db_connection(sede) as db:
             if db:
                 for metric_name, query in queries.items():
-                    # MODIFICAR ESTA LÓGICA:
-                    # Todas las sedes ahora tienen datos académicos
                     if metric_name in ['planillas', 'pagares'] and sede != 'central':
                         continue
                     
@@ -242,7 +240,7 @@ def show_system_overview():
             
             # Mostrar métricas en columnas
             if sede == 'central':
-                col1, col2, col3, col4, col5, col6 = st.columns(6)  # Aumentar columnas
+                col1, col2, col3, col4, col5, col6 = st.columns(6)
                 with col1:
                     st.metric("👥 Estudiantes", metrics[sede].get('estudiantes', 0))
                 with col2:
@@ -583,7 +581,7 @@ def main():
     """
     Función principal que organiza el layout del dashboard.
     """
-    # Título principal con estilo
+    # Título principal
     st.markdown("""
     <div class="main-header">
         <h1>🎓 Sistema Distribuido Universidad Cenfotec</h1>

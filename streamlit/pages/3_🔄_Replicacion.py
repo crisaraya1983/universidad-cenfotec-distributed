@@ -232,7 +232,6 @@ with tab1:
     if st.button("🔄 Refrescar Datos", type="secondary"):
         st.rerun()
     
-    # MOSTRAR DATOS DINÁMICAMENTE según la selección
     st.subheader(f"📊 Estado Actual de {tipo_vista}")
     
     col1, col2, col3 = st.columns(3)
@@ -376,8 +375,17 @@ with tab1:
             nombre_item = st.text_input("👨‍🏫 Nombre del profesor:", placeholder="Ej: Dr. Juan Pérez")
             email_item = st.text_input("📧 Email:", placeholder="juan.perez@cenfotec.ac.cr")
             sede_item = st.selectbox("🏢 Sede del profesor:", ["Central", "San Carlos", "Heredia"])
+            
+            salario_item = st.number_input(
+                "💰 Salario mensual:", 
+                min_value=100000, 
+                max_value=5000000, 
+                value=800000, 
+                step=50000,
+                help="Salario mensual en colones."
+            )
     
-    # Botones de acción (SIN st.form)
+    # Botones de acción
     col_btn1, col_btn2, col_btn3 = st.columns([2, 1, 1])
     
     with col_btn1:
@@ -402,10 +410,13 @@ with tab1:
         
         if tipo_replicacion == "Carrera" and nombre_item:
             datos_validos = True
-        elif tipo_replicacion == "Profesor" and nombre_item and email_item:
+        elif tipo_replicacion == "Profesor" and nombre_item and email_item and salario_item and salario_item > 0:
             datos_validos = True
         else:
-            mensaje_error = f"Por favor completa todos los campos para {tipo_replicacion}"
+            if tipo_replicacion == "Profesor":
+                mensaje_error = "Por favor completa todos los campos para Profesor (nombre, email y salario válido)"
+            else:
+                mensaje_error = f"Por favor completa todos los campos para {tipo_replicacion}"
         
         if datos_validos:
             # Contenedores para mostrar progreso
@@ -417,7 +428,6 @@ with tab1:
             
             # Ejecutar replicación según el tipo
             if tipo_replicacion == "Carrera":
-                # Usar la función real para carreras
                 success = execute_master_slave_replication(
                     nombre_carrera=nombre_item,
                     sede_destino=sede_item,
@@ -425,18 +435,21 @@ with tab1:
                     status_container=status_container
                 )
             else:
-                # Usar la función real para profesores
                 success = execute_profesor_replication(
                     nombre_profesor=nombre_item,
                     email_profesor=email_item,
                     sede_profesor=sede_item,
+                    salario=salario_item,
                     progress_bar=progress_bar,
                     status_container=status_container
                 )
             
             if success:
                 st.balloons()
-                st.success(f"🎉 ¡{tipo_replicacion} replicado exitosamente!")
+                if tipo_replicacion == "Profesor":
+                    st.success(f"🎉 ¡Profesor replicado exitosamente y salario registrado en planilla!")
+                else:
+                    st.success(f"🎉 ¡{tipo_replicacion} replicado exitosamente!")
                 
                 # Mensaje explicativo específico
                 if tipo_replicacion == "Carrera":
@@ -445,19 +458,17 @@ with tab1:
                         f"y se replicó automáticamente a **TODAS** las sedes (San Carlos Y Heredia). "
                         f"Cambia a vista 'Carreras' y presiona '👀 Ver Resultados' para ver la carrera en las **3 tablas**."
                     )
-                else:
+                else:  # Profesor
                     st.info(
                         f"✅ **¿Qué pasó?** Se insertó el profesor '{nombre_item}' en la base de datos Central "
                         f"y se replicó automáticamente a **TODAS** las sedes (San Carlos Y Heredia). "
+                        f"Además, se registró su salario (₡{salario_item:,}) en la planilla de Central. "
                         f"Cambia a vista 'Profesores' y presiona '👀 Ver Resultados' para ver el profesor en las **3 tablas**."
                     )
-            else:
-                st.error(f"❌ Error en la replicación de {tipo_replicacion}")
         else:
             st.error(mensaje_error)
 
     if st.button("📋 Ver Logs", type="secondary"):
-            # Crear un expander para mostrar los logs
             with st.expander("📋 Logs de Replicaciones", expanded=True):
                 mostrar_logs_replicacion()
 
@@ -466,14 +477,14 @@ with tab2:
 
     st.markdown("### 📊 Estado Actual de Estudiantes por Sede")
 
-    # Crear tabs para mostrar datos de cada sede
+    # Tabs para mostrar datos de cada sede
     tab_central, tab_sc, tab_hd = st.tabs(["🏛️ Central", "🏢 San Carlos", "🏫 Heredia"])
 
     def get_students_by_sede(sede_key):
         """Obtiene estudiantes ACTIVOS de una sede específica"""
         with get_db_connection(sede_key) as db:
             if db:
-                # Mostrar solo estudiantes activos en esta sede
+                # Estudiantes activos en esta sede
                 query = """
                 SELECT e.id_estudiante, e.nombre, e.email, 
                     COALESCE(e.estado, 'activo') as estado,

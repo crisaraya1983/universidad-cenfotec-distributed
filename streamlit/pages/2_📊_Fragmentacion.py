@@ -26,7 +26,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# Inicializar session_state para resultados persistentes
+# Inicializar session_state
 if 'fragmentos_estudiantes' not in st.session_state:
     st.session_state.fragmentos_estudiantes = {}
 
@@ -58,7 +58,7 @@ def limpiar_resultados(categoria):
 # Título de la página
 st.title("📊 Fragmentación de Bases de Datos Distribuidas - Universidad Cenfotec")
 
-# Introducción educativa
+# Introducción
 st.markdown("""
 ## 🎯 **¿Qué es la Fragmentación en Bases de Datos Distribuidas?**
 
@@ -127,7 +127,7 @@ with tab1:
     
     fig = go.Figure()
     
-    # Tabla lógica (concepto)
+    # Tabla lógica
     fig.add_trace(go.Scatter(
         x=[0], y=[4],
         mode='markers+text',
@@ -193,7 +193,6 @@ with tab2:
     with col_clear:
         if st.button("🗑️ Limpiar Resultados", key="clear_estudiantes"):
             limpiar_resultados('estudiantes')
-            #st.rerun()
     
     with col_dist:
         if st.button("🔄 Ejecutar Consulta Distribuida: TODOS los Estudiantes", key="dist_estudiantes"):
@@ -249,7 +248,6 @@ with tab2:
                             'sedes': sedes_consultadas,
                             'timestamp': datetime.now()
                         }
-                        #st.rerun()
                 
                 except Exception as e:
                     st.error(f"❌ Error en consulta distribuida: {str(e)}")
@@ -345,8 +343,7 @@ with tab2:
                     FROM estudiante e
                     JOIN sede s ON e.id_sede = s.id_sede
                     WHERE e.id_sede = 3
-                    ORDER BY e.nombre
-                    LIMIT 20;
+                    ORDER BY e.nombre;
                 """
                 
                 with get_db_connection('heredia') as db:
@@ -371,7 +368,7 @@ with tab2:
                                 'timestamp': datetime.now()
                             }
     
-    # Mostrar TODOS los resultados almacenados
+    # Mostrar los resultados almacenados
     st.markdown("### 📊 Resultados de Fragmentación (Persistentes)")
     
     # Mostrar consulta distribuida si existe
@@ -435,7 +432,7 @@ with tab2:
                 else:
                     st.warning(f"No hay estudiantes en {nombre}")
     
-    # Ejemplo 3: Fragmentación por curso/materia CON PERSISTENCIA
+    # Ejemplo 3: Fragmentación por curso/materia
     st.markdown("### 📚 Ejemplo 3: Cursos y Matrículas por Sede")
     st.markdown("""
     **💡 Concepto:** Los cursos y matrículas también siguen la fragmentación por sede.
@@ -488,8 +485,7 @@ with tab2:
                 LEFT JOIN matricula m ON c.id_curso = m.id_curso
                 WHERE car.id_sede = 2
                 GROUP BY c.id_curso, c.nombre, car.nombre, s.nombre
-                ORDER BY estudiantes_matriculados DESC
-                LIMIT 20;
+                ORDER BY estudiantes_matriculados DESC;
             """
             
             with get_db_connection('sancarlos') as db:
@@ -514,8 +510,7 @@ with tab2:
                 LEFT JOIN matricula m ON c.id_curso = m.id_curso
                 WHERE car.id_sede = 3
                 GROUP BY c.id_curso, c.nombre, car.nombre, s.nombre
-                ORDER BY estudiantes_matriculados DESC
-                LIMIT 20;
+                ORDER BY estudiantes_matriculados DESC;
             """
             
             with get_db_connection('heredia') as db:
@@ -557,7 +552,6 @@ with tab3:
     if st.button("🗑️ Limpiar Resultados Verticales", key="clear_vertical"):
         limpiar_resultados('administrativos')
         limpiar_resultados('academicos')
-        #st.rerun()
     
     col1, col2 = st.columns(2)
     

@@ -35,7 +35,7 @@ Las **transacciones distribuidas** son operaciones que involucran datos en múlt
 del sistema. Deben mantener las propiedades ACID incluso cuando los datos están distribuidos.
 """)
 
-# Tabs principales - SIN Consultas Globales, CON Proceso de Matrícula
+# Tabs principales
 tab1, tab2, tab3, tab4 = st.tabs([
     "📋 Conceptos",
     "💰 Transacción: Pago Global",
@@ -211,7 +211,7 @@ with tab2:
     - Actualización del cache distribuido
     """)
     
-    # PASO 1: SELECCIÓN ÚNICA DE ESTUDIANTE (SIMPLIFICADO)
+    # PASO 1: SELECCIÓN ÚNICA DE ESTUDIANTE
     st.markdown("### 👤 Seleccionar Estudiante")
     
     # Cargar estudiantes de todas las sedes
@@ -246,7 +246,7 @@ with tab2:
         st.error("No se pudieron cargar los estudiantes")
         st.stop()
     
-    # PASO 2: FORMULARIO DE PAGO (SIN SELECCIÓN DE SEDE DUPLICADA)
+    # PASO 2: FORMULARIO DE PAGO
     with st.form("pago_global_form"):
         st.markdown("### 📝 Registrar Pago")
         
@@ -297,7 +297,7 @@ with tab2:
             time.sleep(1)
             step2.success(f"✅ Paso 2/5: Estudiante verificado en {estudiante_info['sede_nombre']}")
             
-            # Paso 3: Registrar pago local (CON EJECUCIÓN REAL)
+            # Paso 3: Registrar pago local
             step3 = st.empty()
             step3.info(f"📍 Paso 3/5: Registrando pago en {estudiante_info['sede_nombre']}...")
             
@@ -318,7 +318,7 @@ with tab2:
                     step3.error("❌ No se pudo conectar a la base de datos")
                     st.stop()
             
-            # Paso 4: Actualizar pagaré (si aplica) - CON EJECUCIÓN REAL
+            # Paso 4: Actualizar pagaré (si aplica)
             step4 = st.empty()
             if tiene_pagare:
                 step4.info("📍 Paso 4/5: Actualizando pagaré en Central...")
@@ -330,7 +330,6 @@ with tab2:
                         pagares = db.execute_query(pagare_query, (estudiante_info['id'],))
                         
                         if pagares and len(pagares) > 0:
-                            # Actualizar el primer pagaré encontrado
                             pagare = pagares[0]
                             nuevo_monto = max(0, pagare['monto'] - monto)
                             
@@ -376,7 +375,7 @@ with tab2:
         df_summary = pd.DataFrame(summary_data)
         st.table(df_summary.set_index('Campo'))
         
-        # Log de auditoría CORREGIDO
+        # Log de auditoría
         with st.expander("📜 Ver Log de Auditoría"):
             audit_log = f"""[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] BEGIN DISTRIBUTED TRANSACTION TRX-{datetime.now().strftime('%Y%m%d')}-001
 [{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] VERIFY student_id={estudiante_info['id']} AT {estudiante_info['sede']}
@@ -398,7 +397,7 @@ with tab3:
     - Actualizar registros distribuidos
     """)
     
-    # Inicializar session_state para estudiante recién creado
+    # Inicializar session_state para estudiante
     if 'nuevo_estudiante_creado' not in st.session_state:
         st.session_state.nuevo_estudiante_creado = None
     
@@ -438,7 +437,6 @@ with tab3:
         if 'estudiante_seleccionado_final' not in st.session_state:
             st.session_state.estudiante_seleccionado_final = None
         
-        # Si hay un estudiante recién creado, usarlo automáticamente
         if st.session_state.nuevo_estudiante_creado:
             estudiante_matricula = st.session_state.nuevo_estudiante_creado
             st.session_state.estudiante_seleccionado_final = estudiante_matricula
@@ -453,7 +451,6 @@ with tab3:
             
             st.info("🎯 Estudiante nuevo por matricular")
             
-            # Limpiar el nuevo estudiante creado pero mantener el seleccionado
             st.session_state.nuevo_estudiante_creado = None
             
         else:
@@ -465,7 +462,6 @@ with tab3:
                         estudiantes_options = {f"{est['nombre']} ({est['email']})": est for est in result}
                         
                         if estudiantes_options:
-                            # Determinar el índice por defecto
                             default_index = 0
                             if st.session_state.estudiante_seleccionado_final:
                                 # Buscar el estudiante previamente seleccionado
@@ -607,7 +603,7 @@ with tab3:
                                     "Crear pagaré"
                                 ])
                                 
-                                # Calcular costo total (simulado)
+                                # Calcular costo total
                                 costo_por_curso = 150000
                                 costo_total = len(cursos_seleccionados) * costo_por_curso
                                 
