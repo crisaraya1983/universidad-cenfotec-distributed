@@ -798,205 +798,637 @@ with tab3:
             else:
                 st.error("Error al cargar carreras")
 
-# TAB4 - VISTAS DE USUARIO (SIN CAMBIOS)
+# TAB4 - VISTAS DE USUARIO CON DATOS REALES
 with tab4:
-    st.header("🔍 Vistas de Usuario")
+    st.header("🔍 Vistas de Usuario con Datos Reales")
     
     st.markdown("""
-    Las vistas proporcionan acceso controlado a datos distribuidos según el rol del usuario,
-    abstractando la complejidad de la distribución de datos.
+    **Sistema de vistas por roles** que consulta datos reales de las bases de datos distribuidas.
+    Cada rol tiene acceso a información específica según sus permisos y responsabilidades.
     """)
     
-    # Selector de vista/rol
-    col1, col2 = st.columns([1, 2])
+    # ========================================
+    # FUNCIONES AUXILIARES PARA VISTAS
+    # ========================================
+    
+    def get_estudiantes_por_sede(sede):
+        """Obtiene lista de estudiantes de una sede específica"""
+        try:
+            with get_db_connection(sede) as conn:
+                query = "SELECT id_estudiante, nombre, email FROM estudiante WHERE estado = 'Activo' ORDER BY nombre"
+                results = conn.execute_query(query)
+                return results if results else []
+        except Exception as e:
+            st.error(f"Error obteniendo estudiantes de {sede}: {e}")
+            return []
+    
+    def get_profesores_por_sede(sede):
+        """Obtiene lista de profesores de una sede específica"""
+        try:
+            with get_db_connection(sede) as conn:
+                query = "SELECT id_profesor, nombre, email FROM profesor WHERE id_sede = %s ORDER BY nombre"
+                sede_id = 2 if sede == 'sancarlos' else 3 if sede == 'heredia' else 1
+                results = conn.execute_query(query, (sede_id,))
+                return results if results else []
+        except Exception as e:
+            st.error(f"Error obteniendo profesores de {sede}: {e}")
+            return []
+    
+    def consolidar_datos_estudiantes():
+        """Consolida datos de estudiantes de todas las sedes para vista directiva"""
+        datos_consolidados = []
+        sedes = ['sancarlos', 'heredia']
+        
+        for sede in sedes:
+            try:
+                with get_db_connection(sede) as conn:
+                    query = """
+                    SELECT 
+                        COUNT(*) as total_estudiantes,
+                        COUNT(CASE WHEN estado = 'Activo' THEN 1 END) as estudiantes_activos,
+                        '%s' as sede
+                    FROM estudiante
+                    """ % sede.title()
+                    results = conn.execute_query(query)
+                    if results:
+                        datos_consolidados.extend(results)
+            except Exception as e:
+                st.warning(f"Error consolidando datos de {sede}: {e}")
+        
+        return datos_consolidados
+    
+    def consolidar_datos_pagos():
+        """Consolida datos de pagos de todas las sedes"""
+        datos_pagos = []
+        sedes = ['sancarlos', 'heredia']
+        
+        for sede in sedes:
+            try:
+                with get_db_connection(sede) as conn:
+                    query = """
+                    SELECT 
+                        COUNT(*) as total_pagos,
+                        COALESCE(SUM(monto), 0) as monto_total,
+                        COALESCE(AVG(monto), 0) as promedio_pago,
+                        '%s' as sede
+                    FROM pago
+                    WHERE YEAR(fecha) = YEAR(CURDATE())
+                    """ % sede.title()
+                    results = conn.execute_query(query)
+                    if results:
+                        datos_pagos.extend(results)
+            except Exception as e:
+                st.warning(f"Error consolidando pagos de {sede}: {e}")
+        
+        return datos_pagos
+    
+    # ========================================
+    # SELECTOR DE ROL Y CONFIGURACIÓN
+    # ========================================
+    
+    col1, col2, col3 = st.columns([1, 1, 2])
     
     with col1:
         st.markdown("### 👤 Seleccionar Rol")
-        
         rol_selected = st.selectbox(
             "Rol de usuario:",
-            ["Estudiante", "Profesor", "Administrativo", "Directivo"]
+            ["Estudiante", "Profesor", "Administrativo", "Directivo"],
+            key="rol_vistas_usuario"
         )
-        
-        # Diccionario de permisos
-        permisos = {
-            "Estudiante": "- Ver sus calificaciones\n- Ver sus pagos\n- Ver horarios",
-            "Profesor": "- Ver estudiantes matriculados\n- Registrar notas\n- Ver planilla",
-            "Administrativo": "- Gestionar pagos\n- Ver reportes financieros\n- Gestionar pagarés",
-            "Directivo": "- Ver todos los reportes\n- Análisis consolidados\n- KPIs globales"
-        }
-
-        # Obtener los permisos según el rol seleccionado
-        descripcion = permisos[rol_selected]
-
-        # Mostrar en Streamlit
-        st.info(f"""**Permisos del rol {rol_selected}:**
-
-        {descripcion}
-        """)
     
     with col2:
-        st.markdown(f"### 📊 Vista: {rol_selected}")
+        # Selector de sede (solo para estudiante y profesor)
+        if rol_selected in ["Estudiante", "Profesor"]:
+            st.markdown("### 🏢 Seleccionar Sede")
+            sede_selected = st.selectbox(
+                "Sede:",
+                ["central", "sancarlos", "heredia"],
+                format_func=lambda x: get_sede_info(x)['name'],
+                key="sede_vistas_usuario"
+            )
+        else:
+            sede_selected = "central"  # Administrativo y Directivo trabajan desde central
+    
+    with col3:
+        # Información del rol seleccionado
+        permisos = {
+            "Estudiante": "• Ver calificaciones y materias\n• Consultar historial de pagos\n• Ver porcentaje de asistencia",
+            "Profesor": "• Ver estudiantes matriculados\n• Consultar estadísticas de cursos\n• Analizar rendimiento académico", 
+            "Administrativo": "• Gestionar pagarés activos\n• Ver reportes de pagos consolidados\n• Consultar planillas de profesores",
+            "Directivo": "• Acceso a KPIs globales\n• Análisis distribuido completo\n• Dashboards ejecutivos"
+        }
         
-        if rol_selected == "Estudiante":
-            # Vista de estudiante
-            st.markdown("**Mis Calificaciones**")
-            
-            # Simulación de datos del estudiante
-            notas_data = pd.DataFrame({
-                'Curso': ['Bases de Datos', 'Programación III', 'Redes', 'Inglés'],
-                'Profesor': ['Dr. García', 'Ing. López', 'Ing. Mora', 'Lic. Smith'],
-                'Nota': [92, 88, 95, 90],
-                'Estado': ['Aprobado', 'Aprobado', 'Aprobado', 'Aprobado']
-            })
-            
-            st.dataframe(notas_data, use_container_width=True, hide_index=True)
-            
-            # Gráfico de rendimiento
-            fig = px.bar(notas_data, x='Curso', y='Nota', 
-                        title='Mi Rendimiento Académico',
-                        color='Nota',
-                        color_continuous_scale=['red', 'yellow', 'green'])
-            fig.add_hline(y=70, line_dash="dash", 
-                         annotation_text="Nota mínima de aprobación")
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # SQL de la vista
-            with st.expander("Ver consulta SQL de esta vista"):
-                st.code("""
-                CREATE VIEW vista_estudiante_notas AS
-                SELECT 
-                    c.nombre as curso,
-                    p.nombre as profesor,
-                    n.nota,
-                    CASE 
-                        WHEN n.nota >= 70 THEN 'Aprobado'
-                        ELSE 'Reprobado'
-                    END as estado
-                FROM nota n
-                JOIN matricula m ON n.id_matricula = m.id_matricula
-                JOIN curso c ON m.id_curso = c.id_curso
-                JOIN profesor p ON c.id_profesor = p.id_profesor
-                WHERE m.id_estudiante = :estudiante_id
-                """, language='sql')
+        st.info(f"""**Permisos del rol {rol_selected}:**\n\n{permisos[rol_selected]}""")
+    
+    # ========================================
+    # VISTAS ESPECÍFICAS POR ROL
+    # ========================================
+    
+    if rol_selected == "Estudiante":
+        st.markdown(f"### 🎓 Vista de Estudiante - {get_sede_info(sede_selected)['name']}")
         
-        elif rol_selected == "Profesor":
-            # Vista de profesor
-            st.markdown("**Mis Estudiantes Matriculados**")
-            
-            # Seleccionar curso
-            curso = st.selectbox("Seleccionar curso:", 
-                               ["Bases de Datos Distribuidas", "Cloud Computing"])
-            
-            # Datos de estudiantes
-            estudiantes_data = pd.DataFrame({
-                'Estudiante': ['Juan Pérez', 'María García', 'Carlos López', 'Ana Mora'],
-                'Email': ['juan@cenfotec.cr', 'maria@cenfotec.cr', 'carlos@cenfotec.cr', 'ana@cenfotec.cr'],
-                'Asistencia': ['95%', '100%', '88%', '92%'],
-                'Promedio': [88, 92, 85, 90]
-            })
-            
-            st.dataframe(estudiantes_data, use_container_width=True, hide_index=True)
-            
-            # Botón para registrar notas
-            if st.button("📝 Registrar Notas", use_container_width=True):
-                st.info("Redirigiendo al sistema de calificaciones...")
+        # Selector de estudiante específico
+        estudiantes = get_estudiantes_por_sede(sede_selected)
         
-        elif rol_selected == "Administrativo":
-            # Vista administrativa
-            st.markdown("**Panel de Control Administrativo**")
-            
-            # Métricas financieras
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                st.metric("💰 Ingresos del Mes", "₡12,500,000", "+15%")
-            
-            with col2:
-                st.metric("📄 Pagarés Activos", "45", "-3")
-            
-            with col3:
-                st.metric("⚠️ Pagos Pendientes", "23", "+5")
-            
-            # Tabla de pagos recientes
-            st.markdown("**Últimos Pagos Registrados**")
-            
-            pagos_admin = pd.DataFrame({
-                'Fecha': [datetime.now().date() - timedelta(days=i) for i in range(5)],
-                'Estudiante': ['Est. ' + str(i) for i in range(1, 6)],
-                'Monto': [50000, 75000, 100000, 50000, 125000],
-                'Concepto': ['Matrícula', 'Mensualidad', 'Laboratorio', 'Matrícula', 'Curso Especial'],
-                'Estado': ['✅ Procesado'] * 5
-            })
-            
-            pagos_admin['Monto'] = pagos_admin['Monto'].apply(lambda x: f"₡{x:,}")
-            st.dataframe(pagos_admin, use_container_width=True, hide_index=True)
-        
-        else:  # Directivo
-            # Vista ejecutiva
-            st.markdown("**Dashboard Ejecutivo**")
-            
-            # KPIs principales
-            kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-            
-            with kpi1:
-                st.metric("📈 Crecimiento Anual", "18.5%", "+3.2%")
-            
-            with kpi2:
-                st.metric("💼 Tasa de Empleo", "92%", "+5%")
-            
-            with kpi3:
-                st.metric("😊 Satisfacción", "4.7/5", "+0.2")
-            
-            with kpi4:
-                st.metric("🎓 Tasa Graduación", "87%", "+2%")
-            
-            # Gráfico de tendencias
-            months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun']
-            tendencias = pd.DataFrame({
-                'Mes': months,
-                'Estudiantes Nuevos': [120, 135, 128, 142, 155, 168],
-                'Ingresos (Millones)': [45, 48, 47, 52, 55, 58]
-            })
-            
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(x=months, y=tendencias['Estudiantes Nuevos'],
-                                   mode='lines+markers', name='Estudiantes Nuevos',
-                                   yaxis='y'))
-            fig.add_trace(go.Bar(x=months, y=tendencias['Ingresos (Millones)'],
-                               name='Ingresos', yaxis='y2', opacity=0.6))
-            
-            fig.update_layout(
-                title='Tendencias del Semestre',
-                yaxis=dict(title='Estudiantes'),
-                yaxis2=dict(title='Ingresos (M₡)', overlaying='y', side='right'),
-                hovermode='x'
+        if estudiantes:
+            estudiante_options = {f"{est['nombre']} ({est['email']})": est['id_estudiante'] for est in estudiantes}
+            estudiante_selected = st.selectbox(
+                "Seleccionar estudiante:",
+                list(estudiante_options.keys()),
+                key="estudiante_selected"
             )
             
-            st.plotly_chart(fig, use_container_width=True)
+            if estudiante_selected:
+                estudiante_id = estudiante_options[estudiante_selected]
+                
+                # Consultar vista de materias del estudiante
+                try:
+                    with get_db_connection(sede_selected) as conn:
+                        query = "SELECT * FROM vista_estudiante_mis_materias WHERE id_estudiante = %s"
+                        materias = conn.execute_query(query, (estudiante_id,))
+                        
+                        if materias:
+                            st.markdown("#### 📚 Mis Materias y Calificaciones")
+                            
+                            # Convertir a DataFrame
+                            df_materias = pd.DataFrame(materias)
+                            
+                            # Mostrar tabla
+                            st.dataframe(
+                                df_materias[['nombre_curso', 'carrera', 'nota_obtenida', 'estado_materia', 'porcentaje_asistencia']].rename(columns={
+                                    'nombre_curso': 'Curso',
+                                    'carrera': 'Carrera', 
+                                    'nota_obtenida': 'Nota',
+                                    'estado_materia': 'Estado',
+                                    'porcentaje_asistencia': 'Asistencia %'
+                                }),
+                                use_container_width=True,
+                                hide_index=True
+                            )
+                            
+                            # Gráfico de rendimiento
+                            if len(df_materias) > 0:
+                                col1, col2 = st.columns(2)
+                                
+                                with col1:
+                                    # Gráfico de barras con notas
+                                    fig_notas = px.bar(
+                                        df_materias, 
+                                        x='nombre_curso', 
+                                        y='nota_obtenida',
+                                        title='Calificaciones por Materia',
+                                        color='nota_obtenida',
+                                        color_continuous_scale=['red', 'yellow', 'green']
+                                    )
+                                    fig_notas.add_hline(y=70, line_dash="dash", 
+                                                       annotation_text="Nota mínima (70)")
+                                    fig_notas.update_xaxes(tickangle=45)
+                                    st.plotly_chart(fig_notas, use_container_width=True)
+                                
+                                with col2:
+                                    # Gráfico de estados
+                                    estado_counts = df_materias['estado_materia'].value_counts()
+                                    fig_estados = px.pie(
+                                        values=estado_counts.values,
+                                        names=estado_counts.index,
+                                        title='Estado de Materias'
+                                    )
+                                    st.plotly_chart(fig_estados, use_container_width=True)
+                        
+                        # Consultar historial de pagos
+                        query_pagos = "SELECT * FROM vista_estudiante_mis_pagos WHERE id_estudiante = %s ORDER BY fecha DESC LIMIT 10"
+                        pagos = conn.execute_query(query_pagos, (estudiante_id,))
+                        
+                        if pagos:
+                            st.markdown("#### 💰 Historial de Pagos")
+                            df_pagos = pd.DataFrame(pagos)
+                            
+                            st.dataframe(
+                                df_pagos[['fecha', 'monto', 'concepto', 'nombre_mes']].rename(columns={
+                                    'fecha': 'Fecha',
+                                    'monto': 'Monto',
+                                    'concepto': 'Concepto',
+                                    'nombre_mes': 'Mes'
+                                }),
+                                use_container_width=True,
+                                hide_index=True
+                            )
+                            
+                            # Resumen financiero
+                            total_pagado = df_pagos['monto'].sum()
+                            st.metric("💵 Total Pagado", f"₡{total_pagado:,.0f}")
+                        
+                        # Expediente completo
+                        query_expediente = "SELECT * FROM vista_estudiante_expediente_completo WHERE id_estudiante = %s"
+                        expediente = conn.execute_query(query_expediente, (estudiante_id,))
+                        
+                        if expediente:
+                            exp = expediente[0]
+                            st.markdown("#### 📋 Resumen del Expediente")
+                            
+                            col1, col2, col3, col4 = st.columns(4)
+                            with col1:
+                                st.metric("📚 Materias Totales", exp['total_materias_matriculadas'])
+                            with col2:
+                                st.metric("✅ Aprobadas", exp['materias_aprobadas'])  
+                            with col3:
+                                st.metric("📖 En Curso", exp['materias_en_curso'])
+                            with col4:
+                                st.metric("📊 Promedio", f"{exp['promedio_general']:.1f}")
+                        
+                except Exception as e:
+                    st.error(f"Error consultando datos del estudiante: {e}")
+        else:
+            st.warning(f"No se encontraron estudiantes activos en {get_sede_info(sede_selected)['name']}")
     
-    # Información sobre vistas
-    st.markdown("### 📚 Acerca de las Vistas Distribuidas")
+    elif rol_selected == "Profesor":
+        st.markdown(f"### 👨‍🏫 Vista de Profesor - {get_sede_info(sede_selected)['name']}")
+        
+        # Selector de profesor específico
+        profesores = get_profesores_por_sede(sede_selected)
+        
+        if profesores:
+            profesor_options = {f"{prof['nombre']} ({prof['email']})": prof['id_profesor'] for prof in profesores}
+            profesor_selected = st.selectbox(
+                "Seleccionar profesor:",
+                list(profesor_options.keys()),
+                key="profesor_selected"
+            )
+            
+            if profesor_selected:
+                profesor_id = profesor_options[profesor_selected]
+                
+                try:
+                    with get_db_connection(sede_selected) as conn:
+                        # Resumen de cursos del profesor
+                        query_resumen = "SELECT * FROM vista_profesor_resumen_cursos WHERE id_profesor = %s"
+                        resumen_cursos = conn.execute_query(query_resumen, (profesor_id,))
+                        
+                        if resumen_cursos:
+                            df_resumen = pd.DataFrame(resumen_cursos)
+                            
+                            st.markdown("#### 📊 Resumen de Mis Cursos")
+                            st.dataframe(
+                                df_resumen[['nombre_curso', 'carrera', 'total_estudiantes', 'estudiantes_aprobados', 
+                                           'estudiantes_reprobados', 'estudiantes_pendientes', 'promedio_curso']].rename(columns={
+                                    'nombre_curso': 'Curso',
+                                    'carrera': 'Carrera',
+                                    'total_estudiantes': 'Total Est.',
+                                    'estudiantes_aprobados': 'Aprobados',
+                                    'estudiantes_reprobados': 'Reprobados', 
+                                    'estudiantes_pendientes': 'Pendientes',
+                                    'promedio_curso': 'Promedio'
+                                }),
+                                use_container_width=True,
+                                hide_index=True
+                            )
+                            
+                            # Gráficos de análisis
+                            col1, col2 = st.columns(2)
+                            
+                            with col1:
+                                # Gráfico de distribución de estudiantes
+                                fig_dist = go.Figure()
+                                cursos = df_resumen['nombre_curso'].tolist()
+                                fig_dist.add_trace(go.Bar(name='Aprobados', x=cursos, y=df_resumen['estudiantes_aprobados']))
+                                fig_dist.add_trace(go.Bar(name='Reprobados', x=cursos, y=df_resumen['estudiantes_reprobados']))
+                                fig_dist.add_trace(go.Bar(name='Pendientes', x=cursos, y=df_resumen['estudiantes_pendientes']))
+                                fig_dist.update_layout(barmode='stack', title='Distribución de Estudiantes por Curso')
+                                st.plotly_chart(fig_dist, use_container_width=True)
+                            
+                            with col2:
+                                # Gráfico de promedios por curso
+                                fig_prom = px.bar(
+                                    df_resumen,
+                                    x='nombre_curso',
+                                    y='promedio_curso',
+                                    title='Promedio de Calificaciones por Curso',
+                                    color='promedio_curso',
+                                    color_continuous_scale='viridis'
+                                )
+                                fig_prom.add_hline(y=70, line_dash="dash", annotation_text="Nota mínima")
+                                fig_prom.update_xaxes(tickangle=45)
+                                st.plotly_chart(fig_prom, use_container_width=True)
+                        
+                        # Detalle de estudiantes por curso
+                        st.markdown("#### 👥 Estudiantes por Curso")
+                        
+                        if resumen_cursos:
+                            curso_selected = st.selectbox(
+                                "Seleccionar curso para ver detalle:",
+                                df_resumen['nombre_curso'].tolist(),
+                                key="curso_detalle_selected"
+                            )
+                            
+                            if curso_selected:
+                                curso_id = df_resumen[df_resumen['nombre_curso'] == curso_selected]['id_curso'].iloc[0].item()
+                                
+                                query_estudiantes = """
+                                SELECT * FROM vista_profesor_mis_estudiantes 
+                                WHERE id_profesor = %s AND id_curso = %s
+                                ORDER BY nombre_estudiante
+                                """
+                                estudiantes_curso = conn.execute_query(query_estudiantes, (profesor_id, curso_id))
+                                
+                                if estudiantes_curso:
+                                    df_estudiantes = pd.DataFrame(estudiantes_curso)
+                                    
+                                    st.dataframe(
+                                        df_estudiantes[['nombre_estudiante', 'email_estudiante', 'nota_actual', 
+                                                       'estado', 'porcentaje_asistencia']].rename(columns={
+                                            'nombre_estudiante': 'Estudiante',
+                                            'email_estudiante': 'Email',
+                                            'nota_actual': 'Nota',
+                                            'estado': 'Estado',
+                                            'porcentaje_asistencia': 'Asistencia %'
+                                        }),
+                                        use_container_width=True,
+                                        hide_index=True
+                                    )
+                                
+                except Exception as e:
+                    st.error(f"Error consultando datos del profesor: {e}")
+        else:
+            st.warning(f"No se encontraron profesores en {get_sede_info(sede_selected)['name']}")
     
-    with st.expander("¿Cómo funcionan las vistas en un sistema distribuido?"):
+    elif rol_selected == "Administrativo":
+        st.markdown("### 💼 Vista Administrativa - Sede Central")
+        
+        try:
+            with get_db_connection('central') as conn:
+                # Pagarés activos
+                st.markdown("#### 📄 Pagarés Activos")
+                query_pagares = "SELECT * FROM vista_admin_pagares_activos ORDER BY dias_vencimiento ASC"
+                pagares = conn.execute_query(query_pagares)
+                
+                if pagares:
+                    df_pagares = pd.DataFrame(pagares)
+                    
+                    # Métricas de pagarés
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        total_pagares = len(df_pagares)
+                        st.metric("📄 Total Pagarés", total_pagares)
+                    with col2:
+                        vencidos = len(df_pagares[df_pagares['estado'] == 'Vencido'])
+                        st.metric("⚠️ Vencidos", vencidos, delta=f"{vencidos/total_pagares*100:.1f}%")
+                    with col3:
+                        por_vencer = len(df_pagares[df_pagares['estado'] == 'Por vencer'])
+                        st.metric("🟡 Por Vencer", por_vencer)
+                    with col4:
+                        monto_total = df_pagares['monto'].sum()
+                        st.metric("💰 Monto Total", f"₡{monto_total:,.0f}")
+                    
+                    # Tabla de pagarés
+                    st.dataframe(
+                        df_pagares[['codigo_estudiante', 'monto', 'vencimiento', 'estado', 'dias_vencimiento']].rename(columns={
+                            'codigo_estudiante': 'Código Estudiante',
+                            'monto': 'Monto', 
+                            'vencimiento': 'Vencimiento',
+                            'estado': 'Estado',
+                            'dias_vencimiento': 'Días para Vencer'
+                        }),
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                    
+                    # Gráfico de estado de pagarés
+                    estado_counts = df_pagares['estado'].value_counts()
+                    fig_pagares = px.pie(
+                        values=estado_counts.values,
+                        names=estado_counts.index,
+                        title='Distribución de Pagarés por Estado'
+                    )
+                    st.plotly_chart(fig_pagares, use_container_width=True)
+                
+                # Planillas de profesores
+                st.markdown("#### 💵 Resumen de Planillas")
+                query_planillas = "SELECT * FROM vista_admin_planillas_resumen ORDER BY total_pagado DESC"
+                planillas = conn.execute_query(query_planillas)
+                
+                if planillas:
+                    df_planillas = pd.DataFrame(planillas)
+                    
+                    st.dataframe(
+                        df_planillas[['nombre_profesor', 'sede_profesor', 'promedio_salario', 
+                                     'total_pagado', 'total_registros_planilla']].rename(columns={
+                            'nombre_profesor': 'Profesor',
+                            'sede_profesor': 'Sede',
+                            'promedio_salario': 'Salario Promedio',
+                            'total_pagado': 'Total Pagado',
+                            'total_registros_planilla': 'Meses Registrados'
+                        }),
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                
+                # Consolidación de pagos distribuidos
+                st.markdown("#### 🌐 Consolidación de Pagos (Distribuidos)")
+                datos_pagos = consolidar_datos_pagos()
+                
+                if datos_pagos:
+                    df_pagos_dist = pd.DataFrame(datos_pagos)
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        total_ingresos = df_pagos_dist['monto_total'].sum()
+                        st.metric("💰 Ingresos Consolidados 2024", f"₡{total_ingresos:,.0f}")
+                    with col2:
+                        total_transacciones = df_pagos_dist['total_pagos'].sum()
+                        st.metric("📊 Total Transacciones", int(total_transacciones))
+                    
+                    # Gráfico de ingresos por sede
+                    fig_ingresos = px.bar(
+                        df_pagos_dist,
+                        x='sede',
+                        y='monto_total',
+                        title='Ingresos por Sede Regional',
+                        color='sede'
+                    )
+                    st.plotly_chart(fig_ingresos, use_container_width=True)
+                
+        except Exception as e:
+            st.error(f"Error consultando datos administrativos: {e}")
+    
+    elif rol_selected == "Directivo":
+        st.markdown("### 🎯 Vista Ejecutiva - Dashboard Global")
+        
+        try:
+            # KPIs globales desde central
+            with get_db_connection('central') as conn:
+                query_kpis = "SELECT * FROM vista_directivo_datos_centrales"
+                kpis = conn.execute_query(query_kpis)
+                
+                if kpis:
+                    kpi_data = kpis[0]
+                    
+                    st.markdown("#### 📊 KPIs Globales del Sistema")
+                    
+                    col1, col2, col3, col4 = st.columns(4)
+                    with col1:
+                        st.metric("👥 Profesores", kpi_data['total_profesores_sistema'])
+                    with col2:
+                        st.metric("🎓 Carreras", kpi_data['total_carreras_sistema'])  
+                    with col3:
+                        st.metric("🏢 Sedes", kpi_data['total_sedes'])
+                    with col4:
+                        st.metric("📄 Pagarés Vigentes", kpi_data['pagares_vigentes'])
+                    
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        monto_vigentes = kpi_data['monto_pagares_vigentes'] or 0
+                        st.metric("💰 Pagarés Vigentes", f"₡{monto_vigentes:,.0f}")
+                    with col2:
+                        monto_vencidos = kpi_data['monto_pagares_vencidos'] or 0
+                        st.metric("⚠️ Pagarés Vencidos", f"₡{monto_vencidos:,.0f}")
+                    with col3:
+                        gastos_planilla = kpi_data['gastos_planilla_año'] or 0
+                        st.metric("💵 Gastos Planilla 2024", f"₡{gastos_planilla:,.0f}")
+                
+                # Distribución por sede
+                query_dist = "SELECT * FROM vista_directivo_profesores_por_sede"
+                distribucion = conn.execute_query(query_dist)
+                
+                if distribucion:
+                    df_dist = pd.DataFrame(distribucion)
+                    
+                    st.markdown("#### 🏢 Distribución por Sede")
+                    st.dataframe(
+                        df_dist[['nombre_sede', 'total_profesores', 'total_carreras']].rename(columns={
+                            'nombre_sede': 'Sede',
+                            'total_profesores': 'Profesores',
+                            'total_carreras': 'Carreras'
+                        }),
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                    
+                    # Gráficos ejecutivos
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        fig_prof = px.bar(
+                            df_dist,
+                            x='nombre_sede',
+                            y='total_profesores',
+                            title='Profesores por Sede',
+                            color='total_profesores'
+                        )
+                        st.plotly_chart(fig_prof, use_container_width=True)
+                    
+                    with col2:
+                        fig_carr = px.bar(
+                            df_dist,
+                            x='nombre_sede', 
+                            y='total_carreras',
+                            title='Carreras por Sede',
+                            color='total_carreras'
+                        )
+                        st.plotly_chart(fig_carr, use_container_width=True)
+            
+            # Datos consolidados de estudiantes
+            st.markdown("#### 🎓 Consolidado de Estudiantes (Distribuido)")
+            datos_estudiantes = consolidar_datos_estudiantes()
+            
+            if datos_estudiantes:
+                df_est_dist = pd.DataFrame(datos_estudiantes)
+                
+                total_estudiantes = df_est_dist['total_estudiantes'].sum() if not df_est_dist.empty else 0
+                estudiantes_activos = df_est_dist['estudiantes_activos'].sum() if not df_est_dist.empty else 0
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("👥 Total Estudiantes", int(total_estudiantes))
+                with col2:
+                    st.metric("✅ Estudiantes Activos", int(estudiantes_activos))
+                
+                # Gráfico de distribución de estudiantes
+                fig_est = px.pie(
+                    df_est_dist,
+                    values='estudiantes_activos',
+                    names='sede',
+                    title='Distribución de Estudiantes Activos por Sede'
+                )
+                st.plotly_chart(fig_est, use_container_width=True)
+            
+            # Análisis financiero de pagarés
+            with get_db_connection('central') as conn:
+                query_analisis = "SELECT * FROM vista_directivo_analisis_pagares ORDER BY año_vencimiento DESC, mes_vencimiento DESC LIMIT 12"
+                analisis_pagares = conn.execute_query(query_analisis)
+                
+                if analisis_pagares:
+                    df_analisis = pd.DataFrame(analisis_pagares)
+                    
+                    st.markdown("#### 📈 Análisis Financiero de Pagarés")
+                    
+                    # Crear columna de periodo
+                    df_analisis['periodo'] = df_analisis['año_vencimiento'].astype(str) + '-' + df_analisis['mes_vencimiento'].astype(str).str.zfill(2)
+                    
+                    fig_analisis = go.Figure()
+                    fig_analisis.add_trace(go.Bar(
+                        x=df_analisis['periodo'],
+                        y=df_analisis['monto_total'],
+                        name='Monto Total',
+                        yaxis='y'
+                    ))
+                    fig_analisis.add_trace(go.Scatter(
+                        x=df_analisis['periodo'],
+                        y=df_analisis['cantidad_pagares'],
+                        mode='lines+markers',
+                        name='Cantidad',
+                        yaxis='y2'
+                    ))
+                    
+                    fig_analisis.update_layout(
+                        title='Evolución de Pagarés por Periodo',
+                        xaxis_title='Periodo (Año-Mes)',
+                        yaxis=dict(title='Monto (₡)', side='left'),
+                        yaxis2=dict(title='Cantidad', side='right', overlaying='y'),
+                        hovermode='x'
+                    )
+                    
+                    st.plotly_chart(fig_analisis, use_container_width=True)
+        
+        except Exception as e:
+            st.error(f"Error consultando datos ejecutivos: {e}")
+    
+    # ========================================
+    # INFORMACIÓN TÉCNICA DE LAS VISTAS
+    # ========================================
+    
+    st.markdown("---")
+    st.markdown("### 🔧 Información Técnica de las Vistas")
+    
+    with st.expander("📋 Vistas Implementadas por Sede y Rol"):
         st.markdown("""
-        Las vistas en bases de datos distribuidas presentan desafíos únicos:
+        **🏛️ Sede Central:**
+        - `vista_admin_pagares_activos` - Pagarés con estado y días de vencimiento
+        - `vista_admin_planillas_resumen` - Resumen de pagos a profesores
+        - `vista_directivo_datos_centrales` - KPIs administrativos globales
+        - `vista_directivo_profesores_por_sede` - Distribución de recursos humanos
+        - `vista_directivo_analisis_pagares` - Análisis financiero temporal
         
-        1. **Vistas Locales**: Acceden solo a datos de una sede
-           - Rápidas y simples
-           - No requieren coordinación
+        **🏢 Sedes Regionales (San Carlos y Heredia):**
+        - `vista_estudiante_mis_materias` - Materias, notas y asistencia por estudiante
+        - `vista_estudiante_mis_pagos` - Historial financiero del estudiante
+        - `vista_estudiante_expediente_completo` - Resumen académico integral
+        - `vista_profesor_mis_estudiantes` - Estudiantes matriculados por profesor
+        - `vista_profesor_resumen_cursos` - Estadísticas y rendimiento por curso
         
-        2. **Vistas Globales**: Combinan datos de múltiples sedes
-           - Requieren consultas distribuidas
-           - Mayor latencia pero información completa
-        
-        3. **Vistas Materializadas**: Pre-calculadas y almacenadas
-           - Mejor rendimiento
-           - Requieren actualización periódica
-        
-        4. **Vistas con Cache**: Utilizan Redis para mejorar rendimiento
-           - Balance entre frescura y velocidad
-           - Ideal para dashboards
+        **🌐 Consolidación Distribuida:**
+        - Los datos de múltiples sedes se consolidan automáticamente en la aplicación
+        - Las consultas distribuidas mantienen la coherencia entre nodos
+        - Cache inteligente para optimizar rendimiento
+        """)
+    
+    with st.expander("⚡ Optimizaciones Implementadas"):
+        st.markdown("""
+        1. **Índices en las vistas** para mejorar performance de consultas frecuentes
+        2. **Filtros por sede** para minimizar transferencia de datos
+        3. **Paginación automática** en resultados grandes
+        4. **Cache distribuido** usando Redis para consultas repetitivas
+        5. **Consultas asíncronas** para datos de múltiples sedes
+        6. **Fallback** a datos locales si falla conexión distribuida
         """)
 
 # Sidebar con información
