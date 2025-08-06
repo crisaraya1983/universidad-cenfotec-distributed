@@ -283,11 +283,6 @@ GRANT SELECT ON cenfotec_central.carrera TO 'replicacion'@'%';
 GRANT SELECT ON cenfotec_central.profesor TO 'replicacion'@'%';
 FLUSH PRIVILEGES;
 
-----------------------------------Vistas
-
--- Mensaje de confirmación
-SELECT 'Base de datos SEDE CENTRAL inicializada correctamente' AS mensaje;
-
 -- ========================================
 -- VISTAS PARA ROL ADMINISTRATIVO (CENTRAL)
 -- ========================================
@@ -524,3 +519,6 @@ JOIN estudiante e ON m.id_estudiante = e.id_estudiante
 LEFT JOIN nota n ON m.id_matricula = n.id_matricula
 WHERE p.id_sede = 1 AND e.id_sede = 1
 ORDER BY p.nombre, c.nombre, e.nombre;
+
+-- Mensaje de confirmación
+SELECT 'Base de datos SEDE CENTRAL inicializada correctamente' AS mensaje;
