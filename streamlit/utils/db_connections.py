@@ -421,9 +421,6 @@ def execute_distributed_query(query: str, sedes: Optional[List[str]] = None) -> 
     return results
 
 def execute_real_transfer(student_data: Dict, from_sede: str, to_sede: str, progress_bar, status_container) -> tuple:
-    """
-    Ejecuta transferencia lógica de estudiante
-    """
     try:
         from_key = from_sede.lower().replace(' ', '')
         to_key = to_sede.lower().replace(' ', '')

@@ -415,10 +415,10 @@ with tab2:
     # Tabs para mostrar datos de cada sede
     tab_central, tab_sc, tab_hd = st.tabs(["Central", "San Carlos", "Heredia"])
 
-    def get_students_by_sede(sede_key):
+    def get_students_by_sede(sede_key, sede_id):
         with get_db_connection(sede_key) as db:
             if db:
-                query = """
+                query = f"""
                 SELECT e.id_estudiante, e.nombre, e.email, 
                     COALESCE(e.estado, 'activo') as estado,
                     COUNT(m.id_matricula) as materias_activas,
@@ -426,8 +426,7 @@ with tab2:
                 FROM estudiante e
                 LEFT JOIN matricula m ON e.id_estudiante = m.id_estudiante
                 LEFT JOIN nota n ON m.id_matricula = n.id_matricula
-                WHERE COALESCE(e.estado, 'activo') = 'activo' 
-                OR e.estado IS NULL
+                WHERE sede_actual = {sede_id}
                 GROUP BY e.id_estudiante, e.nombre, e.email, e.estado
                 ORDER BY e.nombre
                 """
@@ -436,7 +435,7 @@ with tab2:
     
     with tab_central:
         st.markdown("**Estudiantes en Central**")
-        estudiantes_central = get_students_by_sede('central')
+        estudiantes_central = get_students_by_sede('central', 1)
         if not estudiantes_central.empty:
             st.dataframe(estudiantes_central, use_container_width=True, hide_index=True)
             st.info(f"Total estudiantes: {len(estudiantes_central)}")
@@ -445,7 +444,7 @@ with tab2:
 
     with tab_sc:
         st.markdown("**Estudiantes en San Carlos**")
-        estudiantes_sc = get_students_by_sede('sancarlos')
+        estudiantes_sc = get_students_by_sede('sancarlos', 2)
         if not estudiantes_sc.empty:
             st.dataframe(estudiantes_sc, use_container_width=True, hide_index=True)
             st.info(f"Total estudiantes: {len(estudiantes_sc)}")
@@ -454,7 +453,7 @@ with tab2:
 
     with tab_hd:
         st.markdown("**Estudiantes en Heredia**")
-        estudiantes_hd = get_students_by_sede('heredia')
+        estudiantes_hd = get_students_by_sede('heredia', 3)
         if not estudiantes_hd.empty:
             st.dataframe(estudiantes_hd, use_container_width=True, hide_index=True)
             st.info(f"Total estudiantes: {len(estudiantes_hd)}")
@@ -477,22 +476,30 @@ with tab2:
 
     with col1:
         st.markdown("### Sede Origen")
-        sede_origen = st.selectbox("Sede origen:", ["Central", "San Carlos", "Heredia"], key="transfer_origen")
+
+        sedes = {
+            "Central": 1,
+            "San Carlos": 2,
+            "Heredia": 3
+        }
+        sede_origen = st.selectbox("Sede origen:", list(sedes.keys()), key="transfer_origen")
+        sede_id = sedes[sede_origen]
+
+        #sede_origen = st.selectbox("Sede origen:", ["Central", "San Carlos", "Heredia"], key="transfer_origen")
         
         estudiantes_reales = []
         sede_key = sede_origen.lower().replace(' ', '')
         
         with get_db_connection(sede_key) as db:
             if db:
-                query = """
+                query = f"""
                 SELECT e.id_estudiante, e.nombre, e.email,
                     COUNT(m.id_matricula) as materias_activas,
                     COALESCE(AVG(n.nota), 0) as promedio
                 FROM estudiante e
                 LEFT JOIN matricula m ON e.id_estudiante = m.id_estudiante
                 LEFT JOIN nota n ON m.id_matricula = n.id_matricula
-                WHERE (e.email NOT LIKE '%TRANSFERIDO%' OR e.email IS NULL)
-                AND (COALESCE(e.estado, 'activo') = 'activo' OR e.estado IS NULL)
+                WHERE sede_actual = {sede_id}
                 GROUP BY e.id_estudiante, e.nombre, e.email
                 ORDER BY e.nombre
                 """
@@ -517,12 +524,14 @@ with tab2:
                 estudiante_seleccionado = estudiantes_reales[selected_idx]
                 
                 st.markdown("**Datos del estudiante:**")
-                st.json({
+                df_estudiante = pd.DataFrame([{
                     'Nombre': estudiante_seleccionado['nombre'],
                     'Email': estudiante_seleccionado['email'],
                     'Materias Activas': estudiante_seleccionado['materias_activas'],
                     'Promedio': round(float(estudiante_seleccionado['promedio']), 2)
-                })
+                }])
+                st.table(df_estudiante)
+
         else:
             st.info(f"No hay estudiantes disponibles en {sede_origen}")
 
@@ -552,10 +561,7 @@ with tab2:
                 )
                 
                 if success:
-                    st.balloons()
                     st.success("Transferencia completada: Estudiante movido exitosamente")
-                    
-                    st.markdown("### Verificación de Transferencia")
                     
                     col1, col2 = st.columns(2)
                     
@@ -609,7 +615,7 @@ with tab2:
                     if new_student_id:
                         st.markdown("### Detalles de la Transferencia Lógica")
                         
-                        audit_details = {
+                        audit_details = pd.DataFrame([{
                             'ID Original': estudiante_data['id_estudiante'],
                             'ID Nuevo': new_student_id,
                             'Estudiante': estudiante_data['nombre'],
@@ -619,9 +625,9 @@ with tab2:
                             'Timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                             'Operación': 'UPDATE (origen) + INSERT (destino)',
                             'Tipo': 'Transferencia Lógica',
-                            'Estado': '✅ Completada'
-                        }
-                        st.json(audit_details)
+                            'Estado': 'Completada'
+                        }])
+                        st.table(audit_details)
                     
                     if st.button("Actualizar Vista de Estudiantes", key="refresh_after_transfer"):
                         st.rerun()
