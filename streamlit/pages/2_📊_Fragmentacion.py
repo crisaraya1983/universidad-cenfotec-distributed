@@ -330,7 +330,7 @@ with tab2:
         col1, col2 = st.columns(2)
         with col1:
             st.success(f"Consulta Distribuida Exitosa - Consultadas: {', '.join(dist_data['sedes'])}")
-            st.dataframe(dist_data['data'].head(15), use_container_width=True, hide_index=True)
+            st.dataframe(dist_data['data'].head(50), use_container_width=True, hide_index=True)
         
         with col2:
             resumen = dist_data['data'].groupby('sede').agg({
