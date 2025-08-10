@@ -1,17 +1,13 @@
-# 🏛️ Sistema de Base de Datos Distribuida - Universidad Cenfotec
+# Sistema de Base de Datos Distribuida - Universidad Cenfotec
 
-## 📋 Descripción del Proyecto
-
-Sistema distribuido que demuestra fragmentación horizontal, vertical y mixta para la Universidad Cenfotec con tres sedes: Central (San José), San Carlos y Heredia.
-
-### 🎯 Objetivos Académicos
+### Objetivos
 - ✅ Fragmentación horizontal (estudiantes por sede)
 - ✅ Fragmentación vertical (datos administrativos vs académicos)
 - ✅ Fragmentación mixta (combinación de ambas)
 - ✅ Replicación de datos maestros
 - ✅ Autonomía operacional por sede
 
-## 🏗️ Arquitectura del Sistema
+## Arquitectura del Sistema
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐

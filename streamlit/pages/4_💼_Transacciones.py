@@ -760,7 +760,7 @@ with tab4:
     
     def consolidar_datos_estudiantes():
         datos_consolidados = []
-        sedes = ['sancarlos', 'heredia']
+        sedes = ['central', 'sancarlos', 'heredia']
         
         for sede in sedes:
             try:
@@ -782,7 +782,7 @@ with tab4:
     
     def consolidar_datos_pagos():
         datos_pagos = []
-        sedes = ['sancarlos', 'heredia']
+        sedes = ['central','sancarlos', 'heredia']
         
         for sede in sedes:
             try:
@@ -1114,7 +1114,7 @@ with tab4:
                         hide_index=True
                     )
                 
-                st.markdown("#### Consolidación de Pagos (Distribuidos)")
+                st.markdown("#### Consolidación de Pagos")
                 datos_pagos = consolidar_datos_pagos()
                 
                 if datos_pagos:
@@ -1123,7 +1123,7 @@ with tab4:
                     col1, col2 = st.columns(2)
                     with col1:
                         total_ingresos = df_pagos_dist['monto_total'].sum()
-                        st.metric("Ingresos Consolidados 2024", f"₡{total_ingresos:,.0f}")
+                        st.metric("Ingresos Consolidados", f"₡{total_ingresos:,.0f}")
                     with col2:
                         total_transacciones = df_pagos_dist['total_pagos'].sum()
                         st.metric("Total Transacciones", int(total_transacciones))
@@ -1163,7 +1163,7 @@ with tab4:
                     with col4:
                         st.metric("Pagarés Vigentes", kpi_data['pagares_vigentes'])
                     
-                    col1, col2, col3 = st.columns(3)
+                    col1, col2, col3, col4 = st.columns(4)
                     with col1:
                         monto_vigentes = kpi_data['monto_pagares_vigentes'] or 0
                         st.metric("Pagarés Vigentes", f"₡{monto_vigentes:,.0f}")
@@ -1172,7 +1172,10 @@ with tab4:
                         st.metric("⚠️ Pagarés Vencidos", f"₡{monto_vencidos:,.0f}")
                     with col3:
                         gastos_planilla = kpi_data['gastos_planilla_año'] or 0
-                        st.metric("💵 Gastos Planilla 2024", f"₡{gastos_planilla:,.0f}")
+                        st.metric("💵 Gastos Planilla Actual", f"₡{gastos_planilla:,.0f}")
+                    with col4:
+                        gastos_planilla_anterior = kpi_data['gastos_planilla_año_anterior'] or  0
+                        st.metric("💵 Gastos Planilla Anterior", f"₡{gastos_planilla_anterior:,.0f}")
                 
                 query_dist = "SELECT * FROM vista_directivo_profesores_por_sede"
                 distribucion = conn.execute_query(query_dist)
@@ -1274,47 +1277,6 @@ with tab4:
         
         except Exception as e:
             st.error(f"Error consultando datos ejecutivos: {e}")
-    
-    
-    st.markdown("---")
-    st.markdown("### Información Técnica de las Vistas")
-    
-    with st.expander("Vistas Implementadas por Sede y Rol"):
-        st.markdown("""
-        **Sede Central:**
-        - `vista_admin_pagares_activos` - Pagarés con estado y días de vencimiento
-        - `vista_admin_planillas_resumen` - Resumen de pagos a profesores
-        - `vista_directivo_datos_centrales` - KPIs administrativos globales
-        - `vista_directivo_profesores_por_sede` - Distribución de recursos humanos
-        - `vista_directivo_analisis_pagares` - Análisis financiero temporal
-        
-        **Sedes Regionales (San Carlos y Heredia):**
-        - `vista_estudiante_mis_materias` - Materias, notas y asistencia por estudiante
-        - `vista_estudiante_mis_pagos` - Historial financiero del estudiante
-        - `vista_estudiante_expediente_completo` - Resumen académico integral
-        - `vista_profesor_mis_estudiantes` - Estudiantes matriculados por profesor
-        - `vista_profesor_resumen_cursos` - Estadísticas y rendimiento por curso
-        
-        **Consolidación Distribuida:**
-        - Los datos de múltiples sedes se consolidan automáticamente en la aplicación
-        - Las consultas distribuidas mantienen la coherencia entre nodos
-        - Cache inteligente para optimizar rendimiento
-        """)
-
-with st.sidebar:
-    st.markdown("### 💼 Transacciones Distribuidas")
-    
-    st.markdown("""
-    Esta sección demuestra:
-    
-    **Transacciones de pago** con consistencia ACID
-    
-    **Proceso de matrícula** completo y distribuido
-    
-    **Vistas de usuario** según roles y permisos
-    
-    **Operaciones** con base de datos
-    """)
     
     
     st.markdown("---")

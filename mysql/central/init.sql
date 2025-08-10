@@ -50,7 +50,7 @@ CREATE TABLE profesor (
 -- (Fragmentación Vertical - Solo en Central)
 -- ========================================
 
--- Tabla de Planillas (SOLO CENTRAL)
+-- Tabla de Planillas
 CREATE TABLE planilla (
     id_planilla INT PRIMARY KEY AUTO_INCREMENT,
     id_profesor INT NOT NULL,
@@ -62,7 +62,7 @@ CREATE TABLE planilla (
     FOREIGN KEY (id_profesor) REFERENCES profesor(id_profesor) ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
--- Tabla de Pagarés (SOLO CENTRAL)
+-- Tabla de Pagarés
 CREATE TABLE pagare (
     id_pagare INT PRIMARY KEY AUTO_INCREMENT,
     id_estudiante INT NOT NULL,
@@ -75,10 +75,9 @@ CREATE TABLE pagare (
 
 -- ========================================
 -- TABLAS ACADÉMICAS DE SEDE CENTRAL
--- (Fragmentación Mixta - Central también tiene estudiantes)
 -- ========================================
 
--- Tabla de Estudiantes (SEDE CENTRAL)
+-- Tabla de Estudiantes
 CREATE TABLE estudiante (
     id_estudiante INT PRIMARY KEY AUTO_INCREMENT,
     nombre VARCHAR(255) NOT NULL,
@@ -93,7 +92,7 @@ CREATE TABLE estudiante (
     FOREIGN KEY (id_sede) REFERENCES sede(id_sede) ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
--- Tabla de Cursos (SEDE CENTRAL)
+-- Tabla de Cursos
 CREATE TABLE curso (
     id_curso INT PRIMARY KEY AUTO_INCREMENT,
     nombre VARCHAR(255) NOT NULL,
@@ -103,7 +102,7 @@ CREATE TABLE curso (
     FOREIGN KEY (id_carrera) REFERENCES carrera(id_carrera) ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
--- Tabla de Matrículas (SEDE CENTRAL)
+-- Tabla de Matrículas
 CREATE TABLE matricula (
     id_matricula INT PRIMARY KEY AUTO_INCREMENT,
     id_estudiante INT NOT NULL,
@@ -116,7 +115,7 @@ CREATE TABLE matricula (
     FOREIGN KEY (id_curso) REFERENCES curso(id_curso) ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
--- Tabla de Notas (SEDE CENTRAL)
+-- Tabla de Notas
 CREATE TABLE nota (
     id_nota INT PRIMARY KEY AUTO_INCREMENT,
     id_matricula INT NOT NULL,
@@ -126,7 +125,7 @@ CREATE TABLE nota (
     FOREIGN KEY (id_matricula) REFERENCES matricula(id_matricula) ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
--- Tabla de Asistencias (SEDE CENTRAL)
+-- Tabla de Asistencia
 CREATE TABLE asistencia (
     id_asistencia INT PRIMARY KEY AUTO_INCREMENT,
     id_matricula INT NOT NULL,
@@ -138,7 +137,7 @@ CREATE TABLE asistencia (
     FOREIGN KEY (id_matricula) REFERENCES matricula(id_matricula) ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
--- Tabla de Pagos (SEDE CENTRAL)
+-- Tabla de Pagos
 CREATE TABLE pago (
     id_pago INT PRIMARY KEY AUTO_INCREMENT,
     id_estudiante INT NOT NULL,
@@ -330,7 +329,8 @@ SELECT
     (SELECT COUNT(*) FROM pagare WHERE vencimiento < CURDATE()) as pagares_vencidos,
     (SELECT SUM(monto) FROM pagare WHERE vencimiento >= CURDATE()) as monto_pagares_vigentes,
     (SELECT SUM(monto) FROM pagare WHERE vencimiento < CURDATE()) as monto_pagares_vencidos,
-    (SELECT SUM(salario) FROM planilla WHERE YEAR(mes) = YEAR(CURDATE())) as gastos_planilla_año,
+    (SELECT SUM(salario) FROM planilla WHERE LEFT(mes, 4) = YEAR(CURDATE())) as gastos_planilla_año,
+    (SELECT SUM(salario) FROM planilla WHERE LEFT(mes, 4) = YEAR(CURDATE()) -1) as gastos_planilla_año_anterior,
     (SELECT COUNT(DISTINCT id_profesor) FROM planilla) as profesores_en_planilla;
 
 -- Vista de distribución de profesores por sede
@@ -399,8 +399,9 @@ JOIN matricula m ON e.id_estudiante = m.id_estudiante
 JOIN curso c ON m.id_curso = c.id_curso
 JOIN carrera car ON c.id_carrera = car.id_carrera
 LEFT JOIN nota n ON m.id_matricula = n.id_matricula
-WHERE e.id_sede = 1 -- Solo estudiantes de Central
+WHERE e.id_sede = 1
 ORDER BY e.nombre, c.nombre;
+
 
 CREATE VIEW vista_estudiante_mis_pagos AS
 SELECT 

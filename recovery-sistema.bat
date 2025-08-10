@@ -17,7 +17,7 @@ docker-compose ps
 
 echo.
 echo ========================================
-echo ✅ SISTEMA ORIGINAL RECUPERADO
+echo  SISTEMA RECUPERADO
 echo ========================================
 echo.
 echo 🌐 URLs disponibles:
@@ -28,9 +28,6 @@ echo 🗄️  Conexiones MySQL:
 echo   • Central:            localhost:3306
 echo   • San Carlos:         localhost:3307
 echo   • Heredia:            localhost:3308
-echo.
-echo ⚠️  Streamlit todavía no está disponible
-echo    Ejecuta fix-requirements.bat para solucionarlo
 echo.
 echo ========================================
 pause
