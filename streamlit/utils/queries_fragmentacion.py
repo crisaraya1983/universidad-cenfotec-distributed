@@ -1,26 +1,3 @@
-"""
-Módulo de consultas SQL CORREGIDAS para Fragmentación
-Este módulo contiene consultas basadas en la estructura REAL de las tablas del proyecto.
-
-ESTRUCTURA REAL DE TABLAS:
-
-CENTRAL:
-- planilla: id_planilla, id_profesor, salario, mes
-- pagare: id_pagare, id_estudiante, monto, vencimiento
-- profesor: id_profesor, nombre, email, id_sede
-- sede: id_sede, nombre, direccion
-- carrera: id_carrera, nombre, id_sede
-
-SAN CARLOS & HEREDIA:
-- estudiante: id_estudiante, nombre, email, id_sede 
-- curso: id_curso, nombre, id_carrera
-- matricula: id_matricula, id_estudiante, id_curso
-- nota: id_nota, id_matricula, nota
-- asistencia: id_asistencia, id_matricula, fecha, presente
-- (Tablas replicadas: sede, carrera, profesor)
-"""
-
-# Consultas CORREGIDAS para fragmentación horizontal por sede
 FRAGMENTACION_HORIZONTAL_QUERIES_REAL = {
     'central': {
         'descripcion': 'Sede Central - Datos Administrativos + Maestros',
@@ -39,7 +16,7 @@ FRAGMENTACION_HORIZONTAL_QUERIES_REAL = {
                     FROM planilla pl
                     JOIN profesor p ON pl.id_profesor = p.id_profesor
                     ORDER BY pl.fecha_creacion DESC
-                    LIMIT 15;
+                    LIMIT 20;
                 """,
                 'campos_esperados': ['profesor', 'salario', 'mes', 'fecha_creacion']
             },
@@ -55,7 +32,7 @@ FRAGMENTACION_HORIZONTAL_QUERIES_REAL = {
                         DATEDIFF(pg.vencimiento, CURDATE()) as dias_vencimiento
                     FROM pagare pg
                     ORDER BY pg.vencimiento ASC
-                    LIMIT 15;
+                    LIMIT 20;
                 """,
                 'campos_esperados': ['id_pagare', 'monto', 'vencimiento', 'fecha_creacion', 'dias_vencimiento']
             },
@@ -118,7 +95,7 @@ FRAGMENTACION_HORIZONTAL_QUERIES_REAL = {
                     WHERE e.id_sede = 2
                     GROUP BY e.id_estudiante, e.nombre, e.email, e.fecha_creacion
                     ORDER BY cursos_matriculados DESC, e.nombre ASC
-                    LIMIT 15;
+                    LIMIT 20;
                 """,
                 'campos_esperados': ['nombre', 'email', 'fecha_creacion', 'cursos_matriculados']
             },
@@ -166,7 +143,7 @@ FRAGMENTACION_HORIZONTAL_QUERIES_REAL = {
                     FROM asistencia a
                     GROUP BY a.fecha
                     ORDER BY a.fecha DESC
-                    LIMIT 10;
+                    LIMIT 20;
                 """,
                 'campos_esperados': ['fecha', 'total_registros', 'presentes', 'ausentes', 'porcentaje_asistencia']
             }
@@ -191,7 +168,7 @@ FRAGMENTACION_HORIZONTAL_QUERIES_REAL = {
                     WHERE e.id_sede = 3
                     GROUP BY e.id_estudiante, e.nombre, e.email, e.fecha_creacion
                     ORDER BY cursos_matriculados DESC, e.nombre ASC
-                    LIMIT 15;
+                    LIMIT 20;
                 """,
                 'campos_esperados': ['nombre', 'email', 'fecha_creacion', 'cursos_matriculados']
             },
@@ -207,7 +184,7 @@ FRAGMENTACION_HORIZONTAL_QUERIES_REAL = {
                     LEFT JOIN matricula m ON c.id_curso = m.id_curso
                     GROUP BY c.id_curso, c.nombre, c.fecha_creacion
                     ORDER BY estudiantes_matriculados DESC
-                    LIMIT 15;
+                    LIMIT 20;
                 """,
                 'campos_esperados': ['curso', 'estudiantes_matriculados', 'fecha_creacion']
             },
@@ -239,7 +216,7 @@ FRAGMENTACION_HORIZONTAL_QUERIES_REAL = {
                     FROM asistencia a
                     GROUP BY a.fecha
                     ORDER BY a.fecha DESC
-                    LIMIT 10;
+                    LIMIT 20;
                 """,
                 'campos_esperados': ['fecha', 'total_registros', 'presentes', 'ausentes', 'porcentaje_asistencia']
             }
@@ -247,7 +224,6 @@ FRAGMENTACION_HORIZONTAL_QUERIES_REAL = {
     }
 }
 
-# Consultas CORREGIDAS para comparación entre sedes
 CONSULTAS_COMPARACION_SEDES_REAL = {
     'estudiantes_por_sede': {
         'nombre': 'Comparación de Estudiantes por Sede',
@@ -315,7 +291,6 @@ CONSULTAS_COMPARACION_SEDES_REAL = {
     }
 }
 
-# Consultas CORREGIDAS para fragmentación vertical
 CONSULTAS_FRAGMENTACION_VERTICAL_REAL = {
     'datos_administrativos_central': """
         SELECT 
@@ -373,7 +348,6 @@ CONSULTAS_FRAGMENTACION_VERTICAL_REAL = {
     """
 }
 
-# Consultas para fragmentación mixta REAL
 CONSULTAS_FRAGMENTACION_MIXTA_REAL = {
     'estudiantes_fragmentacion': {
         'nombre': 'Fragmentación de Estudiantes',
@@ -407,11 +381,7 @@ CONSULTAS_FRAGMENTACION_MIXTA_REAL = {
     }
 }
 
-# Funciones de utilidad CORREGIDAS
 def generar_consulta_fragmentacion_real(sede_id, tabla='estudiante', limit=10):
-    """
-    Genera una consulta de fragmentación horizontal usando campos REALES
-    """
     if tabla == 'estudiante':
         return f"""
             SELECT nombre, email, fecha_creacion
@@ -432,9 +402,6 @@ def generar_consulta_fragmentacion_real(sede_id, tabla='estudiante', limit=10):
         return f"SELECT * FROM {tabla} LIMIT {limit};"
 
 def generar_consulta_comparacion_real(tabla, campo_agrupacion='id_sede'):
-    """
-    Genera una consulta para comparar datos entre sedes usando estructura REAL
-    """
     if tabla == 'estudiante':
         return """
             SELECT 
@@ -459,9 +426,6 @@ def generar_consulta_comparacion_real(tabla, campo_agrupacion='id_sede'):
         return f"SELECT COUNT(*) as total FROM {tabla};"
 
 def obtener_estadisticas_sede_real(sede_id):
-    """
-    Retorna consultas estadísticas REALES para una sede específica
-    """
     queries = {
         'estudiantes': f"SELECT COUNT(*) as total FROM estudiante WHERE id_sede = {sede_id}",
         'matriculas': f"""
@@ -490,7 +454,6 @@ def obtener_estadisticas_sede_real(sede_id):
     }
     return queries
 
-# Metadatos REALES para la interfaz
 SEDE_METADATA_REAL = {
     'central': {
         'nombre_completo': 'Sede Central - San José',
@@ -527,7 +490,6 @@ SEDE_METADATA_REAL = {
     }
 }
 
-# Consultas para validación de estructura (debugging)
 CONSULTAS_VALIDACION = {
     'mostrar_tablas': "SHOW TABLES;",
     'estructura_estudiante': "DESCRIBE estudiante;",

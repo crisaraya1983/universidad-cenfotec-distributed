@@ -297,10 +297,6 @@ with tab1:
     
     st.subheader("Ejecutar Nueva Replicación")
     
-    st.markdown("""    
-    **Resultado esperado:** El nuevo registro aparecerá en las **3 tablas de arriba**.
-    """)
-    
     col_tipo, col_datos = st.columns([1, 2])
     
     with col_tipo:
@@ -354,9 +350,9 @@ with tab1:
             datos_validos = True
         else:
             if tipo_replicacion == "Profesor":
-                mensaje_error = "Por favor completa todos los campos para Profesor (nombre, email y salario válido)"
+                mensaje_error = "Completar todos los campos para Profesor (nombre, email y salario válido)"
             else:
-                mensaje_error = f"Por favor completa todos los campos para {tipo_replicacion}"
+                mensaje_error = f"Completar todos los campos para {tipo_replicacion}"
         
         if datos_validos:
             st.markdown("### Progreso de Replicación")
@@ -385,18 +381,18 @@ with tab1:
             if success:
                 st.balloons()
                 if tipo_replicacion == "Profesor":
-                    st.success(f"🎉 ¡Profesor replicado exitosamente y salario registrado en planilla!")
+                    st.success(f"¡Profesor replicado exitosamente y salario registrado en planilla!")
                 else:
-                    st.success(f"🎉 ¡{tipo_replicacion} replicado exitosamente!")
+                    st.success(f"¡{tipo_replicacion} replicado exitosamente!")
                 
                 if tipo_replicacion == "Carrera":
                     st.info(
-                        f"✅ Se insertó la carrera '{nombre_item}' en la base de datos Central "
+                        f"Se insertó la carrera '{nombre_item}' en la base de datos Central "
                         f"y se replicó automáticamente a las sedes (San Carlos Y Heredia). "
                     )
                 else:  # Profesor
                     st.info(
-                        f"✅ Se insertó el profesor '{nombre_item}' en la base de datos Central "
+                        f"Se insertó el profesor '{nombre_item}' en la base de datos Central "
                         f"y se replicó automáticamente a las sedes (San Carlos Y Heredia). "
                         f"Además, se registró su salario (₡{salario_item:,}) en la planilla de Central. "
                     )
@@ -412,7 +408,6 @@ with tab2:
 
     st.markdown("### Estado Actual de Estudiantes por Sede")
 
-    # Tabs para mostrar datos de cada sede
     tab_central, tab_sc, tab_hd = st.tabs(["Central", "San Carlos", "Heredia"])
 
     def get_students_by_sede(sede_key, sede_id):
@@ -556,81 +551,32 @@ with tab2:
                 status_container = st.container()
                 
                 success, new_student_id = execute_real_transfer(
-                    estudiante_data, sede_origen, sede_destino, 
-                    progress_bar, status_container
-                )
+                estudiante_data, sede_origen, sede_destino, 
+                progress_bar, status_container
+            )
+
+            if success:
+                with status_container:
+                    st.success("Transferencia completada exitosamente")
                 
-                if success:
-                    st.success("Transferencia completada: Estudiante movido exitosamente")
-                    
-                    col1, col2 = st.columns(2)
-                    
-                    from_key = sede_origen.lower().replace(' ', '')
-                    to_key = sede_destino.lower().replace(' ', '')
-                    
-                    with col1:
-                        st.markdown(f"**{sede_origen} (Origen)**")
-                        with get_db_connection(from_key) as db:
-                            if db:
-                                check_query = """
-                                SELECT COUNT(*) as count, 
-                                    SUM(CASE WHEN estado = 'transferido' THEN 1 ELSE 0 END) as transferidos
-                                FROM estudiante 
-                                WHERE nombre = %s
-                                """
-                                result = db.get_dataframe(check_query, (estudiante_data['nombre'],))
-                                if not result.empty:
-                                    total = result.iloc[0]['count']
-                                    transferidos = result.iloc[0]['transferidos'] or 0
-                                    
-                                    if transferidos > 0:
-                                        st.success(f"Estudiante marcado como transferido ({transferidos}/{total})")
-                                    else:
-                                        st.warning("Estudiante no marcado como transferido")
-                                else:
-                                    st.error("❌ Error al verificar estado")
+                st.markdown("### Resumen de Transferencia")
+                
+                audit_details = pd.DataFrame([{
+                    'ID Original': estudiante_data['id_estudiante'],
+                    'ID Destino': new_student_id if new_student_id != estudiante_data['id_estudiante'] else 'Mismo (retorno)',
+                    'Estudiante': estudiante_data['nombre'],
+                    'Email': estudiante_data['email'],
+                    'Desde': sede_origen,
+                    'Hacia': sede_destino,
+                    'Timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'Tipo': 'Retorno' if new_student_id == estudiante_data['id_estudiante'] else 'Nueva transferencia',
+                    'Estado': 'Completada'
+                }])
+                st.table(audit_details)
+                
+                if st.button("Actualizar Vista de Estudiantes", key="refresh_after_transfer"):
+                    st.rerun()
 
-                    with col2:
-                        st.markdown(f"**{sede_destino} (Destino)**")
-                        with get_db_connection(to_key) as db:
-                            if db:
-                                check_query = """
-                                SELECT COUNT(*) as count,
-                                    SUM(CASE WHEN estado = 'activo' THEN 1 ELSE 0 END) as activos
-                                FROM estudiante 
-                                WHERE nombre = %s
-                                """
-                                result = db.get_dataframe(check_query, (estudiante_data['nombre'],))
-                                if not result.empty:
-                                    total = result.iloc[0]['count']
-                                    activos = result.iloc[0]['activos'] or 0
-                                    
-                                    if activos > 0:
-                                        st.success(f"Estudiante activo en destino ({activos}/{total})")
-                                    else:
-                                        st.error("❌ Estudiante no encontrado en destino")
-                                else:
-                                    st.error("❌ Error al verificar estado")
-                    
-                    if new_student_id:
-                        st.markdown("### Detalles de la Transferencia Lógica")
-                        
-                        audit_details = pd.DataFrame([{
-                            'ID Original': estudiante_data['id_estudiante'],
-                            'ID Nuevo': new_student_id,
-                            'Estudiante': estudiante_data['nombre'],
-                            'Email': estudiante_data['email'],
-                            'Desde': sede_origen,
-                            'Hacia': sede_destino,
-                            'Timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                            'Operación': 'UPDATE (origen) + INSERT (destino)',
-                            'Tipo': 'Transferencia Lógica',
-                            'Estado': 'Completada'
-                        }])
-                        st.table(audit_details)
-                    
-                    if st.button("Actualizar Vista de Estudiantes", key="refresh_after_transfer"):
-                        st.rerun()
-
-                else:
+            else:
+                with status_container:
                     st.error("❌ Error en la transferencia")
