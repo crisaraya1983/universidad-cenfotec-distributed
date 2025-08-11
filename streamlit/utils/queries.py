@@ -1,10 +1,3 @@
-"""
-Módulo de consultas SQL predefinidas
-Este módulo contiene todas las consultas SQL utilizadas en el sistema,
-organizadas por categoría y sede.
-"""
-
-# Consultas para verificación de fragmentación
 FRAGMENTATION_QUERIES = {
     'horizontal_estudiantes': """
         SELECT s.nombre as sede, 
@@ -34,7 +27,6 @@ FRAGMENTATION_QUERIES = {
     """
 }
 
-# Consultas para replicación
 REPLICATION_QUERIES = {
     'check_master_data': """
         SELECT 'Carreras' as tabla, COUNT(*) as registros, MAX(id_carrera) as max_id
@@ -66,7 +58,6 @@ REPLICATION_QUERIES = {
     """
 }
 
-# Consultas para transacciones
 TRANSACTION_QUERIES = {
     'global_student_report': """
         SELECT 
@@ -108,7 +99,6 @@ TRANSACTION_QUERIES = {
     """
 }
 
-# Consultas para monitoreo
 MONITORING_QUERIES = {
     'table_sizes': """
         SELECT 
@@ -168,7 +158,6 @@ MONITORING_QUERIES = {
     """
 }
 
-# Consultas para análisis
 ANALYSIS_QUERIES = {
     'student_distribution': """
         SELECT 
@@ -213,7 +202,6 @@ ANALYSIS_QUERIES = {
     """
 }
 
-# Consultas para vistas de usuario
 USER_VIEW_QUERIES = {
     'student_view': """
         CREATE OR REPLACE VIEW vista_estudiante AS
@@ -289,19 +277,7 @@ TRANSFER_QUERIES = {
     """
 }
 
-# Funciones auxiliares para construcción de queries
 def build_date_filter(start_date=None, end_date=None, date_column='fecha'):
-    """
-    Construye una cláusula WHERE para filtrar por fechas.
-    
-    Args:
-        start_date: Fecha de inicio (datetime o string)
-        end_date: Fecha de fin (datetime o string)
-        date_column: Nombre de la columna de fecha
-    
-    Returns:
-        String con la cláusula WHERE o string vacío
-    """
     conditions = []
     
     if start_date:
@@ -316,26 +292,14 @@ def build_date_filter(start_date=None, end_date=None, date_column='fecha'):
     return ""
 
 def build_pagination(page=1, per_page=50):
-    """
-    Construye cláusulas LIMIT y OFFSET para paginación.
-    
-    Args:
-        page: Número de página (empieza en 1)
-        per_page: Registros por página
-    
-    Returns:
-        String con LIMIT y OFFSET
-    """
     offset = (page - 1) * per_page
     return f"LIMIT {per_page} OFFSET {offset}"
 
 # Queries dinámicas para reportes
 class ReportQueries:
-    """Clase para generar queries dinámicas de reportes."""
     
     @staticmethod
     def student_report(sede_id=None, carrera_id=None):
-        """Genera query para reporte de estudiantes con filtros opcionales."""
         base_query = """
         SELECT 
             e.nombre as estudiante,
@@ -370,7 +334,6 @@ class ReportQueries:
     
     @staticmethod
     def financial_report(start_date=None, end_date=None, concepto=None):
-        """Genera query para reporte financiero con filtros."""
         base_query = """
         SELECT 
             DATE_FORMAT(p.fecha, '%Y-%m-%d') as fecha,
@@ -404,7 +367,6 @@ class ReportQueries:
         
         return base_query
 
-# Exportar todas las queries
 __all__ = [
     'FRAGMENTATION_QUERIES',
     'REPLICATION_QUERIES',
