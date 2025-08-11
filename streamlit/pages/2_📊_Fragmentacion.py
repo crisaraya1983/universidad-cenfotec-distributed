@@ -5,7 +5,6 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import time
 from datetime import datetime
-
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -71,7 +70,6 @@ with tab1:
         - `estudiante` WHERE `id_sede = 3` → Heredia  
         - **Cada sede tiene PARTE de los estudiantes totales**
         
-        **Beneficio:** Consultas locales más rápidas  
         **Consulta global:** Requiere UNIR datos de múltiples sedes
         """)
         
@@ -85,7 +83,6 @@ with tab1:
         - Si estudiante está en SC → sus matrículas están en SC
         - Si estudiante está en HD → sus matrículas están en HD
         
-        **Beneficio:** Mantiene datos relacionados juntos
         """)
     
     with col2:
@@ -98,7 +95,6 @@ with tab1:
         - **Central:** Datos administrativos (`planilla`, `pagare`)
         - **Regionales:** Solo datos académicos (`matricula`, `nota`, `asistencia`)
         
-        **Beneficio:** Separación funcional y seguridad  
         **Consulta mixta:** Requiere datos de Central + Regional
         """)
     
@@ -211,7 +207,6 @@ with tab2:
                 except Exception as e:
                     st.error(f"❌ Error en consulta distribuida: {str(e)}")
     
-    # Botones para cada fragmento
     col1, col2, col3 = st.columns(3)
 
     with col1:
