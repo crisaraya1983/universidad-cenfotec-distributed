@@ -170,12 +170,12 @@ with tab2:
                         SELECT 
                             e.nombre as estudiante,
                             s.nombre as sede,
-                            e.id_sede,
+                            e.sede_actual as id_sede,
                             COUNT(m.id_matricula) as matriculas
                         FROM estudiante e
-                        JOIN sede s ON e.id_sede = s.id_sede
+                        JOIN sede s ON e.sede_actual = s.id_sede
                         LEFT JOIN matricula m ON e.id_estudiante = m.id_estudiante
-                        GROUP BY e.id_estudiante, e.nombre, s.nombre, e.id_sede
+                        GROUP BY e.id_estudiante, e.nombre, s.nombre, e.sede_actual
                         ORDER BY e.nombre;
                     """
                     with get_db_connection('central') as db:
@@ -225,7 +225,7 @@ with tab2:
                         e.id_sede
                     FROM estudiante e
                     JOIN sede s ON e.id_sede = s.id_sede
-                    WHERE e.id_sede = 1
+                    WHERE e.sede_actual = 1
                     ORDER BY e.nombre
                     LIMIT 20;
                 """
@@ -261,7 +261,7 @@ with tab2:
                         e.id_sede
                     FROM estudiante e
                     JOIN sede s ON e.id_sede = s.id_sede
-                    WHERE e.id_sede = 2
+                    WHERE e.sede_actual = 2
                     ORDER BY e.nombre
                     LIMIT 20;
                 """
@@ -297,7 +297,7 @@ with tab2:
                         e.id_sede
                     FROM estudiante e
                     JOIN sede s ON e.id_sede = s.id_sede
-                    WHERE e.id_sede = 3
+                    WHERE e.sede_actual = 3
                     ORDER BY e.nombre;
                 """
                 
@@ -325,11 +325,11 @@ with tab2:
     
     if 'distribuida' in st.session_state.fragmentos_estudiantes:
         dist_data = st.session_state.fragmentos_estudiantes['distribuida']
-        st.markdown("#### Consulta Distribuida - Todos los Estudiantes Unidos")
+        st.markdown("#### Consulta - Todos los Estudiantes Unidos")
         
         col1, col2 = st.columns(2)
         with col1:
-            st.success(f"Consulta Distribuida Exitosa - Consultadas: {', '.join(dist_data['sedes'])}")
+            st.success(f"Consulta Exitosa - Estudiantes de Sedes: {', '.join(dist_data['sedes'])}")
             st.dataframe(dist_data['data'].head(50), use_container_width=True, hide_index=True)
         
         with col2:
