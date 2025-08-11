@@ -1,17 +1,12 @@
-"""
-Widget global para mostrar estado de Redis Cache
-"""
 import streamlit as st
 from .db_connections import get_redis_connection
 
 def show_redis_widget():
-    """Muestra widget compacto de Redis en sidebar"""
-    st.markdown("### 💾 Cache Redis")
+    st.markdown("### Cache Redis")
     
     redis_conn = get_redis_connection()
     if redis_conn and redis_conn.is_connected:
         try:
-            # Simular estadísticas de cache
             info = redis_conn.get_info()
             hits = info.get('keyspace_hits', 0)
             misses = info.get('keyspace_misses', 0)
@@ -24,7 +19,6 @@ def show_redis_widget():
             with col2:
                 st.metric("Keys", info.get('db0', {}).get('keys', 0))
             
-            # Barra de progreso para hit rate
             st.progress(hit_rate / 100)
             
         except:

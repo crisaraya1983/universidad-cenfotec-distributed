@@ -1,9 +1,3 @@
-"""
-Configuración de conexiones
-Este archivo centraliza todas las configuraciones de conexión a las bases de datos
-y servicios del sistema distribuido.
-"""
-
 import os
 from typing import Dict, Any
 
@@ -45,7 +39,6 @@ DB_CONFIG = {
 # CONFIGURACIÓN DE USUARIO DE REPLICACIÓN
 # ========================================
 
-# Usuario para operaciones de replicación y verificación
 REPLICATION_USER_CONFIG = {
     'central_read_only': {
         'host': '172.20.0.10',
@@ -59,7 +52,6 @@ REPLICATION_USER_CONFIG = {
     }
 }
 
-# Configuración de Redis Cache
 REDIS_CONFIG = {
     'host': '172.20.0.13',
     'port': 6379,
@@ -72,7 +64,6 @@ REDIS_CONFIG = {
 
 REDIS_ENABLED = True 
 
-# Configuración de la aplicación Streamlit
 APP_CONFIG = {
     'title': '🎓 Sistema Distribuido Universidad Cenfotec',
     'page_icon': '🎓',
@@ -102,7 +93,6 @@ CHART_CONFIG = {
     'theme': 'streamlit'
 }
 
-# Mensajes de estado del sistema
 MESSAGES = {
     'connection_success': '✅ Conexión exitosa a {sede}',
     'connection_error': '❌ Error al conectar con {sede}: {error}',
@@ -116,17 +106,12 @@ MESSAGES = {
     'admin_user_info': 'Usando usuario administrador (lectura/escritura)'
 }
 
-# Configuración de tiempos de espera y reintentos
 TIMEOUT_CONFIG = {
     'connection_timeout': 10,
     'query_timeout': 30,
     'retry_attempts': 3,
     'retry_delay': 1
 }
-
-# ========================================
-# CONFIGURACIÓN DE ROLES Y PERMISOS
-# ========================================
 
 OPERATION_USERS = {
     'read_master_data': 'replication', 
