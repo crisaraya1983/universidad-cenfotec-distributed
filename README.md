@@ -77,5 +77,6 @@ Para ver logs:
 docker-compose logs
 ```
 
-## En Caso de Problemas con las Vistas
-Abrir phpMyAdmin: http://localhost:8080 o bien un gestor de Bases de Datos como DBeaver y correr en cada servidor los archivos de vistas en el folder de vistas
+## En Caso de Problemas Creando las  Vistas durante el Build del Proyecto
+Abrir phpMyAdmin: http://localhost:8080 o bien un gestor de Bases de Datos como DBeaver
+Correr en cada servidor los archivos de vistas en el folder de \Vistas
