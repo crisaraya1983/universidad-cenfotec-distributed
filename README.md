@@ -1,7 +1,5 @@
 # Sistema de Base de Datos Distribuida - Universidad Cenfotec
 
-Sistema distribuido con fragmentación de datos implementado en Docker que simula 3 sedes universitarias con interfaz web completa en Streamlit.
-
 ## Instalación
 
 ### Requisitos

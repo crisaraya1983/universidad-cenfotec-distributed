@@ -1,9 +1,8 @@
 -- ========================================
 -- INICIALIZACIÓN BASE DE DATOS - SEDE SAN CARLOS
--- Universidad Cenfotec - Nodo Regional
 -- ========================================
 
--- Crear la base de datos si no existe
+-- Crear la base de datos
 CREATE DATABASE IF NOT EXISTS cenfotec_sancarlos 
 CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -11,10 +10,9 @@ USE cenfotec_sancarlos;
 
 -- ========================================
 -- TABLAS REPLICADAS DESDE CENTRAL
--- (Estas se poblarán automáticamente vía replicación)
 -- ========================================
 
--- Tabla de Sedes (REPLICADA desde Central)
+-- Tabla de Sedes
 CREATE TABLE sede (
     id_sede INT PRIMARY KEY AUTO_INCREMENT,
     nombre VARCHAR(100) NOT NULL,
@@ -23,7 +21,7 @@ CREATE TABLE sede (
     INDEX idx_nombre (nombre)
 ) ENGINE=InnoDB;
 
--- Tabla de Carreras (REPLICADA desde Central)
+-- Tabla de Carreras
 CREATE TABLE carrera (
     id_carrera INT PRIMARY KEY AUTO_INCREMENT,
     nombre VARCHAR(255) NOT NULL,
@@ -33,7 +31,7 @@ CREATE TABLE carrera (
     FOREIGN KEY (id_sede) REFERENCES sede(id_sede) ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
--- Tabla de Profesores (REPLICADA desde Central)
+-- Tabla de Profesores
 CREATE TABLE profesor (
     id_profesor INT PRIMARY KEY AUTO_INCREMENT,
     nombre VARCHAR(255) NOT NULL,
@@ -47,15 +45,14 @@ CREATE TABLE profesor (
 
 -- ========================================
 -- TABLAS ESPECÍFICAS DE SAN CARLOS
--- (Fragmentación Horizontal - Solo estudiantes de San Carlos)
 -- ========================================
 
--- Tabla de Estudiantes (SOLO SAN CARLOS)
+-- Tabla de Estudiantes
 CREATE TABLE estudiante (
     id_estudiante INT PRIMARY KEY AUTO_INCREMENT,
     nombre VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
-    id_sede INT NOT NULL DEFAULT 2, -- San Carlos
+    id_sede INT NOT NULL DEFAULT 2,
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     estado ENUM('activo', 'transferido', 'inactivo'),
     sede_actual INT DEFAULT 1,
@@ -65,7 +62,7 @@ CREATE TABLE estudiante (
     FOREIGN KEY (id_sede) REFERENCES sede(id_sede) ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
--- Tabla de Cursos (SOLO SAN CARLOS)
+-- Tabla de Cursos
 CREATE TABLE curso (
     id_curso INT PRIMARY KEY AUTO_INCREMENT,
     nombre VARCHAR(255) NOT NULL,
@@ -75,7 +72,7 @@ CREATE TABLE curso (
     FOREIGN KEY (id_carrera) REFERENCES carrera(id_carrera) ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
--- Tabla de Matrículas (SOLO SAN CARLOS)
+-- Tabla de Matrículas
 CREATE TABLE matricula (
     id_matricula INT PRIMARY KEY AUTO_INCREMENT,
     id_estudiante INT NOT NULL,
@@ -88,7 +85,7 @@ CREATE TABLE matricula (
     FOREIGN KEY (id_curso) REFERENCES curso(id_curso) ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
--- Tabla de Asistencias (SOLO SAN CARLOS)
+-- Tabla de Asistencias
 CREATE TABLE asistencia (
     id_asistencia INT PRIMARY KEY AUTO_INCREMENT,
     id_matricula INT NOT NULL,
@@ -100,7 +97,7 @@ CREATE TABLE asistencia (
     FOREIGN KEY (id_matricula) REFERENCES matricula(id_matricula) ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
--- Tabla de Notas (SOLO SAN CARLOS)
+-- Tabla de Notas
 CREATE TABLE nota (
     id_nota INT PRIMARY KEY AUTO_INCREMENT,
     id_matricula INT NOT NULL,
@@ -110,7 +107,7 @@ CREATE TABLE nota (
     FOREIGN KEY (id_matricula) REFERENCES matricula(id_matricula) ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
--- Tabla de Pagos (SOLO SAN CARLOS)
+-- Tabla de Pagos
 CREATE TABLE pago (
     id_pago INT PRIMARY KEY AUTO_INCREMENT,
     id_estudiante INT NOT NULL,
@@ -148,7 +145,7 @@ CREATE TABLE sync_queue (
 -- DATOS INICIALES DE PRUEBA
 -- ========================================
 
--- Insertar datos temporales (estos vendrán de replicación en realidad)
+-- Insertar datos temporales
 INSERT INTO sede (id_sede, nombre, direccion) VALUES
 (1, 'Central', 'San José, Costa Rica'),
 (2, 'San Carlos', 'Ciudad Quesada, Alajuela'),
@@ -162,7 +159,7 @@ INSERT INTO profesor (id_profesor, nombre, email, id_sede) VALUES
 (3, 'Luis Hernández Castro', 'luis.hernandez@cenfotec.ac.cr', 2),
 (4, 'Ana Jiménez Solano', 'ana.jimenez@cenfotec.ac.cr', 2);
 
--- Insertar estudiantes de San Carlos (Fragmentación Horizontal)
+-- Insertar estudiantes
 INSERT INTO estudiante (nombre, email, id_sede, estado, sede_actual, fecha_transferencia) VALUES
 ('Juan Pérez López', 'juan.perez@estudiante.cenfotec.ac.cr', 2, 'activo', 2, NULL),
 ('María Rodríguez Vargas', 'maria.rodriguez@estudiante.cenfotec.ac.cr', 2, 'activo', 2, NULL),
@@ -186,7 +183,7 @@ INSERT INTO matricula (id_estudiante, id_curso) VALUES
 (4, 4), (4, 5),
 (5, 1), (5, 4);
 
--- Insertar asistencias de ejemplo
+-- Insertar asistencias
 INSERT INTO asistencia (id_matricula, fecha, presente) VALUES
 (1, '2024-01-15', TRUE),
 (1, '2024-01-16', TRUE),
@@ -194,7 +191,7 @@ INSERT INTO asistencia (id_matricula, fecha, presente) VALUES
 (2, '2024-01-15', TRUE),
 (3, '2024-01-15', TRUE);
 
--- Insertar notas de ejemplo
+-- Insertar notas
 INSERT INTO nota (id_matricula, nota) VALUES
 (1, 85.5),
 (2, 92.0),
@@ -202,7 +199,7 @@ INSERT INTO nota (id_matricula, nota) VALUES
 (4, 88.0),
 (5, 91.5);
 
--- Insertar pagos de ejemplo
+-- Insertar pagos
 INSERT INTO pago (id_estudiante, monto, fecha) VALUES
 (1, 150000.00, '2024-01-15'),
 (2, 150000.00, '2024-01-20'),
@@ -210,9 +207,9 @@ INSERT INTO pago (id_estudiante, monto, fecha) VALUES
 (4, 150000.00, '2024-01-22'),
 (5, 150000.00, '2024-01-25');
 
--- ========================================
--- VISTAS PARA ROL ESTUDIANTE (SAN CARLOS)
--- ========================================
+-- ============================
+-- VISTAS PARA ROL ESTUDIANTE 
+-- ============================
 
 -- Vista de materias y notas por estudiante
 CREATE VIEW vista_estudiante_mis_materias AS
@@ -249,7 +246,7 @@ JOIN matricula m ON e.id_estudiante = m.id_estudiante
 JOIN curso c ON m.id_curso = c.id_curso
 JOIN carrera car ON c.id_carrera = car.id_carrera
 LEFT JOIN nota n ON m.id_matricula = n.id_matricula
-WHERE e.id_sede = 2 -- Solo estudiantes de San Carlos
+WHERE e.id_sede = 2
 ORDER BY e.nombre, c.nombre;
 
 -- Vista de historial de pagos del estudiante
@@ -293,9 +290,9 @@ WHERE e.id_sede = 2
 GROUP BY e.id_estudiante, e.nombre, e.email, e.estado, e.fecha_creacion
 ORDER BY e.nombre;
 
--- ========================================
--- VISTAS PARA ROL PROFESOR (SAN CARLOS)
--- ========================================
+-- ===========================
+-- VISTAS PARA ROL PROFESOR
+-- ===========================
 
 -- Vista de estudiantes por curso del profesor
 CREATE VIEW vista_profesor_mis_estudiantes AS

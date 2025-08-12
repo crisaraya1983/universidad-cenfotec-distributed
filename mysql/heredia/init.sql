@@ -1,9 +1,8 @@
 -- ========================================
 -- INICIALIZACIÓN BASE DE DATOS - SEDE HEREDIA
--- Universidad Cenfotec - Nodo Regional
 -- ========================================
 
--- Crear la base de datos si no existe
+-- Crear la base de datos
 CREATE DATABASE IF NOT EXISTS cenfotec_heredia 
 CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -11,10 +10,9 @@ USE cenfotec_heredia;
 
 -- ========================================
 -- TABLAS REPLICADAS DESDE CENTRAL
--- (Estas se poblarán automáticamente vía replicación)
 -- ========================================
 
--- Tabla de Sedes (REPLICADA desde Central)
+-- Tabla de Sedes
 CREATE TABLE sede (
     id_sede INT PRIMARY KEY AUTO_INCREMENT,
     nombre VARCHAR(100) NOT NULL,
@@ -23,7 +21,7 @@ CREATE TABLE sede (
     INDEX idx_nombre (nombre)
 ) ENGINE=InnoDB;
 
--- Tabla de Carreras (REPLICADA desde Central)
+-- Tabla de Carreras
 CREATE TABLE carrera (
     id_carrera INT PRIMARY KEY AUTO_INCREMENT,
     nombre VARCHAR(255) NOT NULL,
@@ -33,7 +31,7 @@ CREATE TABLE carrera (
     FOREIGN KEY (id_sede) REFERENCES sede(id_sede) ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
--- Tabla de Profesores (REPLICADA desde Central)
+-- Tabla de Profesores
 CREATE TABLE profesor (
     id_profesor INT PRIMARY KEY AUTO_INCREMENT,
     nombre VARCHAR(255) NOT NULL,
@@ -47,15 +45,14 @@ CREATE TABLE profesor (
 
 -- ========================================
 -- TABLAS ESPECÍFICAS DE HEREDIA
--- (Fragmentación Horizontal - Solo estudiantes de Heredia)
 -- ========================================
 
--- Tabla de Estudiantes (SOLO HEREDIA)
+-- Tabla de Estudiantes
 CREATE TABLE estudiante (
     id_estudiante INT PRIMARY KEY AUTO_INCREMENT,
     nombre VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
-    id_sede INT NOT NULL DEFAULT 3, -- Heredia
+    id_sede INT NOT NULL DEFAULT 3,
     fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     estado ENUM('activo', 'transferido', 'inactivo'),
     sede_actual INT DEFAULT 1,
@@ -65,7 +62,7 @@ CREATE TABLE estudiante (
     FOREIGN KEY (id_sede) REFERENCES sede(id_sede) ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
--- Tabla de Cursos (SOLO HEREDIA)
+-- Tabla de Cursos
 CREATE TABLE curso (
     id_curso INT PRIMARY KEY AUTO_INCREMENT,
     nombre VARCHAR(255) NOT NULL,
@@ -75,7 +72,7 @@ CREATE TABLE curso (
     FOREIGN KEY (id_carrera) REFERENCES carrera(id_carrera) ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
--- Tabla de Matrículas (SOLO HEREDIA)
+-- Tabla de Matrículas
 CREATE TABLE matricula (
     id_matricula INT PRIMARY KEY AUTO_INCREMENT,
     id_estudiante INT NOT NULL,
@@ -88,7 +85,7 @@ CREATE TABLE matricula (
     FOREIGN KEY (id_curso) REFERENCES curso(id_curso) ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
--- Tabla de Asistencias (SOLO HEREDIA)
+-- Tabla de Asistencias
 CREATE TABLE asistencia (
     id_asistencia INT PRIMARY KEY AUTO_INCREMENT,
     id_matricula INT NOT NULL,
@@ -100,7 +97,7 @@ CREATE TABLE asistencia (
     FOREIGN KEY (id_matricula) REFERENCES matricula(id_matricula) ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
--- Tabla de Notas (SOLO HEREDIA)
+-- Tabla de Notas
 CREATE TABLE nota (
     id_nota INT PRIMARY KEY AUTO_INCREMENT,
     id_matricula INT NOT NULL,
@@ -110,7 +107,7 @@ CREATE TABLE nota (
     FOREIGN KEY (id_matricula) REFERENCES matricula(id_matricula) ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
--- Tabla de Pagos (SOLO HEREDIA)
+-- Tabla de Pagos
 CREATE TABLE pago (
     id_pago INT PRIMARY KEY AUTO_INCREMENT,
     id_estudiante INT NOT NULL,
@@ -144,26 +141,24 @@ CREATE TABLE sync_queue (
     INDEX idx_fecha_creacion (fecha_creacion)
 ) ENGINE=InnoDB;
 
--- ========================================
--- DATOS INICIALES DE PRUEBA
--- ========================================
-
--- Insertar datos temporales (estos vendrán de replicación en realidad)
+-- Insertar datos sedes
 INSERT INTO sede (id_sede, nombre, direccion) VALUES
 (1, 'Central', 'San José, Costa Rica'),
 (2, 'San Carlos', 'Ciudad Quesada, Alajuela'),
 (3, 'Heredia', 'Heredia Centro, Heredia');
 
+-- Insertar datos carrera
 INSERT INTO carrera (id_carrera, nombre, id_sede) VALUES
 (3, 'Ingeniería en Software', 3),
 (5, 'Diseño Gráfico Digital', 3),
 (8, 'Mercadeo Digital', 3);
 
+-- Insertar Datos Profesores
 INSERT INTO profesor (id_profesor, nombre, email, id_sede) VALUES
 (5, 'Roberto Chaves Alpízar', 'roberto.chaves@cenfotec.ac.cr', 3),
 (6, 'Silvia Morales Pérez', 'silvia.morales@cenfotec.ac.cr', 3);
 
--- Insertar estudiantes de Heredia (Fragmentación Horizontal)
+-- Insertar estudiantes
 INSERT INTO estudiante (nombre, email, id_sede, estado, sede_actual, fecha_transferencia) VALUES
 ('Sofía Chaves Morales', 'sofia.chaves@estudiante.cenfotec.ac.cr', 3, 'activo', 3, NULL),
 ('Diego Mata Rojas', 'diego.mata@estudiante.cenfotec.ac.cr', 3, 'activo', 3, NULL),
@@ -187,7 +182,7 @@ INSERT INTO matricula (id_estudiante, id_curso) VALUES
 (4, 5), (4, 1),
 (5, 3), (5, 5);
 
--- Insertar asistencias de ejemplo
+-- Insertar asistencias
 INSERT INTO asistencia (id_matricula, fecha, presente) VALUES
 (1, '2024-01-15', TRUE),
 (1, '2024-01-16', TRUE),
@@ -195,7 +190,7 @@ INSERT INTO asistencia (id_matricula, fecha, presente) VALUES
 (2, '2024-01-15', TRUE),
 (3, '2024-01-15', TRUE);
 
--- Insertar notas de ejemplo
+-- Insertar notas
 INSERT INTO nota (id_matricula, nota) VALUES
 (1, 90.0),
 (2, 87.5),
@@ -203,7 +198,7 @@ INSERT INTO nota (id_matricula, nota) VALUES
 (4, 82.5),
 (5, 89.0);
 
--- Insertar pagos de ejemplo
+-- Insertar pagos
 INSERT INTO pago (id_estudiante, monto, fecha) VALUES
 (1, 150000.00, '2024-01-10'),
 (2, 150000.00, '2024-01-12'),
@@ -213,10 +208,9 @@ INSERT INTO pago (id_estudiante, monto, fecha) VALUES
 
 
 -- ========================================
--- VISTAS PARA ROL ESTUDIANTE (HEREDIA)
+-- VISTAS PARA ROL ESTUDIANTE
 -- ========================================
 
--- Las mismas vistas que San Carlos pero cambiando id_sede = 3
 CREATE VIEW vista_estudiante_mis_materias AS
 SELECT 
     e.id_estudiante,
@@ -251,7 +245,7 @@ JOIN matricula m ON e.id_estudiante = m.id_estudiante
 JOIN curso c ON m.id_curso = c.id_curso
 JOIN carrera car ON c.id_carrera = car.id_carrera
 LEFT JOIN nota n ON m.id_matricula = n.id_matricula
-WHERE e.id_sede = 3 -- Solo estudiantes de Heredia
+WHERE e.id_sede = 3 
 ORDER BY e.nombre, c.nombre;
 
 CREATE VIEW vista_estudiante_mis_pagos AS
@@ -294,7 +288,7 @@ GROUP BY e.id_estudiante, e.nombre, e.email, e.estado, e.fecha_creacion
 ORDER BY e.nombre;
 
 -- ========================================
--- VISTAS PARA ROL PROFESOR (HEREDIA)
+-- VISTAS PARA ROL PROFESOR
 -- ========================================
 
 CREATE VIEW vista_profesor_mis_estudiantes AS
@@ -325,7 +319,7 @@ SELECT
         WHEN (SELECT COUNT(*) FROM asistencia a WHERE a.id_matricula = m.id_matricula) > 0 THEN
             ROUND(
                 ((SELECT COUNT(*) FROM asistencia a WHERE a.id_matricula = m.id_matricula AND a.presente = 1) / 
-                 (SELECT COUNT(*) FROM asistencia a WHERE a.id_matricula = m.id_matricula)) * 100, 2
+                (SELECT COUNT(*) FROM asistencia a WHERE a.id_matricula = m.id_matricula)) * 100, 2
             )
         ELSE 0
     END as porcentaje_asistencia

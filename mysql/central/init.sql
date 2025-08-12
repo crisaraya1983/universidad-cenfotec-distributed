@@ -1,9 +1,8 @@
 -- ========================================
 -- INICIALIZACIÓN BASE DE DATOS - SEDE CENTRAL
--- Universidad Cenfotec - Nodo Maestro
 -- ========================================
 
--- Crear la base de datos si no existe
+-- Crear la base de datos
 CREATE DATABASE IF NOT EXISTS cenfotec_central 
 CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -22,7 +21,7 @@ CREATE TABLE sede (
     INDEX idx_nombre (nombre)
 ) ENGINE=InnoDB;
 
--- Tabla de Carreras (Fragmentación Vertical - Se replica a regionales)
+-- Tabla de Carreras
 CREATE TABLE carrera (
     id_carrera INT PRIMARY KEY AUTO_INCREMENT,
     nombre VARCHAR(255) NOT NULL,
@@ -32,7 +31,7 @@ CREATE TABLE carrera (
     FOREIGN KEY (id_sede) REFERENCES sede(id_sede) ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
--- Tabla de Profesores (Fragmentación Vertical - Se replica a regionales)
+-- Tabla de Profesores
 CREATE TABLE profesor (
     id_profesor INT PRIMARY KEY AUTO_INCREMENT,
     nombre VARCHAR(255) NOT NULL,
@@ -47,7 +46,6 @@ CREATE TABLE profesor (
 
 -- ========================================
 -- TABLAS ESPECÍFICAS DE SEDE CENTRAL
--- (Fragmentación Vertical - Solo en Central)
 -- ========================================
 
 -- Tabla de Planillas
@@ -171,7 +169,7 @@ CREATE TABLE replication_log (
 ) ENGINE=InnoDB;
 
 
--- Crear tabla de auditoría
+-- Tabla de auditoría
 CREATE TABLE IF NOT EXISTS transferencia_estudiante (
     id_transferencia INT PRIMARY KEY AUTO_INCREMENT,
     id_estudiante INT,
@@ -183,9 +181,9 @@ CREATE TABLE IF NOT EXISTS transferencia_estudiante (
     FOREIGN KEY (id_estudiante) REFERENCES estudiante(id_estudiante)
 );
 
--- ========================================
--- DATOS INICIALES DE PRUEBA
--- ========================================
+-- =================================
+-- DATOS INICIALES
+-- ==================================
 
 -- Insertar sedes
 INSERT INTO sede (id_sede, nombre, direccion) VALUES
@@ -213,14 +211,14 @@ INSERT INTO profesor (nombre, email, id_sede) VALUES
 ('Roberto Chaves Alpízar', 'roberto.chaves@cenfotec.ac.cr', 3),
 ('Silvia Morales Pérez', 'silvia.morales@cenfotec.ac.cr', 3);
 
--- Insertar planillas de ejemplo
+-- Insertar planillas
 INSERT INTO planilla (id_profesor, salario, mes) VALUES
 (1, 1200000.00, '2024-01'),
 (2, 1200000.00, '2024-01'),
 (1, 1200000.00, '2024-02'),
 (2, 1200000.00, '2024-02');
 
--- Insertar pagarés de ejemplo (con id_estudiante de referencia)
+-- Insertar pagarés
 INSERT INTO pagare (id_estudiante, monto, vencimiento) VALUES
 (1, 500000.00, '2024-06-30'),
 (2, 750000.00, '2024-07-31'),
@@ -274,9 +272,9 @@ INSERT INTO pago (id_estudiante, monto, fecha) VALUES
 (4, 200000.00, '2024-01-16'),
 (5, 200000.00, '2024-01-18');
 
--- ========================================
--- VISTAS PARA ROL ADMINISTRATIVO (CENTRAL)
--- ========================================
+-- ==================================
+-- VISTAS PARA ROL ADMINISTRATIVO
+-- ==================================
 
 -- Vista de pagarés activos
 CREATE VIEW vista_admin_pagares_activos AS
@@ -315,9 +313,9 @@ JOIN sede s ON p.id_sede = s.id_sede
 GROUP BY pl.id_profesor, p.nombre, p.email, s.nombre
 ORDER BY p.nombre;
 
--- ========================================
--- VISTAS PARA ROL DIRECTIVO (CENTRAL)
--- ========================================
+-- ===================================
+-- VISTAS PARA ROL DIRECTIVO
+-- ===================================
 
 -- Vista ejecutiva con datos administrativos centrales
 CREATE VIEW vista_directivo_datos_centrales AS
