@@ -379,7 +379,7 @@ with tab1:
                 )
             
             if success:
-                st.balloons()
+                #st.balloons()
                 if tipo_replicacion == "Profesor":
                     st.success(f"¡Profesor replicado exitosamente y salario registrado en planilla!")
                 else:
@@ -390,7 +390,7 @@ with tab1:
                         f"Se insertó la carrera '{nombre_item}' en la base de datos Central "
                         f"y se replicó automáticamente a las sedes (San Carlos Y Heredia). "
                     )
-                else:  # Profesor
+                else:
                     st.info(
                         f"Se insertó el profesor '{nombre_item}' en la base de datos Central "
                         f"y se replicó automáticamente a las sedes (San Carlos Y Heredia). "

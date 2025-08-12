@@ -657,11 +657,11 @@ with tab4:
                         COUNT(DISTINCT a.id_asistencia) as total_asistencias,
                         AVG(n.nota) as promedio_notas
                     FROM estudiante e
-                    JOIN sede s ON e.id_sede = s.id_sede
+                    JOIN sede s ON e.sede_actual = s.id_sede
                     LEFT JOIN matricula m ON e.id_estudiante = m.id_estudiante
                     LEFT JOIN nota n ON m.id_matricula = n.id_matricula
                     LEFT JOIN asistencia a ON m.id_matricula = a.id_matricula
-                    WHERE e.id_sede = {}
+                    WHERE e.sede_actual = {}
                     GROUP BY e.id_estudiante, e.nombre, e.id_sede, s.nombre
                     ORDER BY total_matriculas DESC
                     LIMIT 20;
@@ -678,7 +678,7 @@ with tab4:
                     LEFT JOIN matricula m ON e.id_estudiante = m.id_estudiante
                     LEFT JOIN nota n ON m.id_matricula = n.id_matricula
                     LEFT JOIN asistencia a ON m.id_matricula = a.id_matricula
-                    WHERE e.id_sede = {sede_id};
+                    WHERE e.sede_actual = {sede_id};
                 """
                 
                 with get_db_connection(sede_key) as db:
@@ -724,9 +724,9 @@ with tab4:
                         st.metric("Notas Derivadas", total_notas) 
                         st.metric("Asistencias Derivadas", total_asistencias)
                     
-                    if data['verificacion'] is not None and not data['verificacion'].empty:
-                        st.markdown("#### Verificación de Integridad Derivada")
-                        st.dataframe(data['verificacion'], use_container_width=True, hide_index=True)
+                    #if data['verificacion'] is not None and not data['verificacion'].empty:
+                    #    st.markdown("#### Verificación de Integridad Derivada")
+                    #    st.dataframe(data['verificacion'], use_container_width=True, hide_index=True)
                 else:
                     st.warning(f"No hay datos para mostrar fragmentación derivada en {sede_nombre}")
 
