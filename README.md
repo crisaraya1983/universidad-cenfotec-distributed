@@ -76,3 +76,6 @@ Para ver logs:
 ```bash
 docker-compose logs
 ```
+
+## En Caso de Problemas con las Vistas
+Abrir phpMyAdmin: http://localhost:8080 o bien un gestor de Bases de Datos como DBeaver y correr en cada servidor los archivos de vistas en el folder de vistas

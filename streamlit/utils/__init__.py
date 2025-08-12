@@ -1,5 +1,5 @@
 """
-Módulo de utilidades para el Sistema Distribuido Cenfotec
+Módulo de utilidades
 Este paquete contiene todas las utilidades compartidas por la aplicación Streamlit.
 """
 
@@ -30,7 +30,7 @@ from .queries import (
 from .replication import (
     MasterSlaveReplication,
     execute_master_slave_replication,
-    execute_profesor_replication,  # NUEVA FUNCIÓN
+    execute_profesor_replication,
     ReplicationConnection
 )
 
